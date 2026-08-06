@@ -61,6 +61,8 @@ pywebview + vanilla HTML/CSS/JS. No framework, no build step. Dark theme is near
 
 ## Setup
 
+Full from-scratch walkthrough (Supabase project, Oracle free-tier VPS, packaging): **[docs/SETUP.md](docs/SETUP.md)**. Short version:
+
 ```bash
 # 1. Database: create a Supabase project, run migrations/*.sql in order
 #    (RLS is deny-all; the REST API exposes nothing — access is direct Postgres)

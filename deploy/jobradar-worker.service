@@ -9,6 +9,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=ubuntu
 WorkingDirectory=/opt/jobradar
 EnvironmentFile=/opt/jobradar/.env
 ExecStart=/opt/jobradar/.venv/bin/python -m worker.main
