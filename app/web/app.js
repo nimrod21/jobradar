@@ -458,6 +458,9 @@ function openModal(tracker) {
   const wm = tracker?.work_modes || [];
   document.querySelectorAll("#f-workmodes .chip").forEach((c) =>
     c.classList.toggle("active", wm.includes(c.dataset.m)));
+  const scope = tracker?.search_in || "both";
+  document.querySelectorAll("#f-searchin .chip").forEach((c) =>
+    c.classList.toggle("active", c.dataset.s === scope));
   updateLocValue();
   $("#f-delete").hidden = !tracker;
   $("#modal-backdrop").hidden = false;
@@ -495,6 +498,7 @@ async function saveModal() {
     exclude_terms: chipInputs.exclude.get(),
     exclude_companies: chipInputs.excludeCo.get(),
     date_window: win,
+    search_in: document.querySelector("#f-searchin .chip.active")?.dataset.s || "both",
     work_modes: workModes(),
     location_mode: mode,
     location_value: mode === "region" ? $("#f-locregion").value : $("#f-locvalue").value,
@@ -641,6 +645,12 @@ window.addEventListener("pywebviewready", () => {
   $("#f-workmodes").addEventListener("click", (e) => {
     const chip = e.target.closest(".chip");
     if (chip) chip.classList.toggle("active");   // multi-select toggles
+  });
+  $("#f-searchin").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#f-searchin .chip").forEach((c) =>
+      c.classList.toggle("active", c === chip));   // single-select
   });
   $("#f-delete").addEventListener("click", () => {
     const t = state.trackers.find((x) => x.id === editingId);

@@ -88,7 +88,13 @@ class Api:
         clauses = ["j.status <> 'dead'"]
         params: dict = {}
         if t["include_terms"]:
-            clauses.append("j.search_vec @@ websearch_to_tsquery('english', %(inc)s)")
+            scope = t.get("search_in") or "both"
+            # expression must match the index expression exactly
+            vec = {
+                "title": "to_tsvector('english', coalesce(j.title, ''))",
+                "description": "to_tsvector('english', coalesce(j.description, ''))",
+            }.get(scope, "j.search_vec")
+            clauses.append(f"{vec} @@ websearch_to_tsquery('english', %(inc)s)")
             params["inc"] = _tsquery(t["include_terms"])
         if t["exclude_terms"]:
             clauses.append("not j.search_vec @@ websearch_to_tsquery('english', %(exc)s)")
@@ -187,6 +193,9 @@ class Api:
             "exclude_terms": [t for t in fields.get("exclude_terms", []) if t.strip()],
             "exclude_companies": [t for t in fields.get("exclude_companies", []) if t.strip()],
             "date_window": fields.get("date_window") or "14d",
+            "search_in": fields.get("search_in")
+                         if fields.get("search_in") in ("both", "title", "description")
+                         else "both",
             "work_modes": [m for m in fields.get("work_modes", []) if m in _WORK_MODES],
             "location_mode": fields.get("location_mode") or "any",
             "location_value": (fields.get("location_value") or "").strip() or None,
@@ -198,16 +207,17 @@ class Api:
                 cur.execute(
                     """update trackers set name=%(name)s, include_terms=%(include_terms)s,
                        exclude_terms=%(exclude_terms)s, exclude_companies=%(exclude_companies)s,
-                       date_window=%(date_window)s, work_modes=%(work_modes)s,
-                       location_mode=%(location_mode)s,
+                       date_window=%(date_window)s, search_in=%(search_in)s,
+                       work_modes=%(work_modes)s, location_mode=%(location_mode)s,
                        location_value=%(location_value)s where id=%(id)s returning id""",
                     {**cols, "id": fields["id"]})
             else:
                 cur.execute(
                     """insert into trackers (name, include_terms, exclude_terms,
-                       exclude_companies, date_window, work_modes, location_mode, location_value)
+                       exclude_companies, date_window, search_in, work_modes,
+                       location_mode, location_value)
                        values (%(name)s,%(include_terms)s,%(exclude_terms)s,
-                       %(exclude_companies)s,%(date_window)s,%(work_modes)s,
+                       %(exclude_companies)s,%(date_window)s,%(search_in)s,%(work_modes)s,
                        %(location_mode)s,%(location_value)s) returning id""", cols)
             return {"id": cur.fetchone()["id"]}
 
