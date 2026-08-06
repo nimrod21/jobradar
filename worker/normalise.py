@@ -95,9 +95,10 @@ def parse_salary(raw: str | None) -> tuple[float | None, float | None, str | Non
 
 
 def normalise(rj: RawJob) -> Job:
-    title = _WS.sub(" ", rj.title).strip()
-    company = _WS.sub(" ", rj.company).strip() if rj.company else None
-    location = _WS.sub(" ", rj.location).strip() if rj.location else None
+    # sources escape entities in scalar fields too (RemoteOK: "Crown &amp; Pearl")
+    title = _WS.sub(" ", html_mod.unescape(rj.title)).strip()
+    company = _WS.sub(" ", html_mod.unescape(rj.company)).strip() if rj.company else None
+    location = _WS.sub(" ", html_mod.unescape(rj.location)).strip() if rj.location else None
 
     description_html = rj.description_html
     description = strip_html(description_html) if description_html else None

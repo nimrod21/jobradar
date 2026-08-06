@@ -24,12 +24,14 @@ AGGREGATOR_HOSTS = {
     "jobicy.com",
     "himalayas.app",
     "arbeitnow.com",
+    "arbeitnow.co.uk",
     "workingnomads.com",
     "themuse.com",
     "weworkremotely.com",
     "joblet.ai",
     "news.ycombinator.com",
     "jobgether.com",
+    "jometer.com",  # joblet's per-listing tracking redirect
 }
 
 # Trailing location/mode suffixes on titles: "Backend Engineer (Remote)",
