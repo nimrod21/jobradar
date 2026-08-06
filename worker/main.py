@@ -20,6 +20,7 @@ from . import config, db
 from .models import Job
 from .normalise import normalise
 from .sources import tier1_sources
+from .sources.ats import SUPPORTED_ATS, AtsBoard
 from .sources.base import Source
 
 
@@ -59,11 +60,23 @@ async def run_cycle(sources: list[Source], conn) -> None:
             try:
                 jobs = await tasks[source.name]
                 total, new = write_jobs(conn, source.name, jobs)
+                if isinstance(source, AtsBoard):
+                    db.touch_registry(conn, *source.registry_key, status=200, new_jobs=new)
                 db.record_success(conn, source.name, total)
                 print(f"  {source.name}: {total} jobs, {new} new")
             except Exception as e:  # noqa: BLE001 — a broken source must not abort the run
                 db.record_failure(conn, source.name, f"{type(e).__name__}: {e}")
+                if isinstance(source, AtsBoard):
+                    status = e.response.status_code \
+                        if isinstance(e, httpx.HTTPStatusError) else 0
+                    db.touch_registry(conn, *source.registry_key, status=status, new_jobs=0)
+                    conn.commit()
                 print(f"  {source.name}: FAILED {type(e).__name__}: {e}", file=sys.stderr)
+
+
+def registry_boards(conn) -> list[AtsBoard]:
+    rows = db.due_registry_boards(conn, list(SUPPORTED_ATS))
+    return [SUPPORTED_ATS[ats](slug, company) for ats, slug, company in rows]
 
 
 async def dry_run(sources: list[Source]) -> None:
@@ -107,17 +120,19 @@ async def main() -> None:
 
     last_run: dict[str, float] = {}
     while True:
-        due = [s for s in sources
-               if time.time() - last_run.get(s.name, 0) >= s.interval_minutes * 60]
-        if due:
-            print(f"cycle: {len(due)} source(s) due")
-            conn = db.connect()
-            try:
-                await run_cycle(due, conn)
-            finally:
-                conn.close()
-            for s in due:
-                last_run[s.name] = time.time()
+        due: list[Source] = [
+            s for s in sources
+            if time.time() - last_run.get(s.name, 0) >= s.interval_minutes * 60]
+        conn = db.connect()
+        try:
+            boards = registry_boards(conn)  # adaptive cadence lives in the query
+            if due or boards:
+                print(f"cycle: {len(due)} source(s) + {len(boards)} registry board(s) due")
+                await run_cycle(due + boards, conn)
+        finally:
+            conn.close()
+        for s in due:
+            last_run[s.name] = time.time()
         if args.once:
             return
         await asyncio.sleep(60)

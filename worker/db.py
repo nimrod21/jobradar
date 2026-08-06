@@ -181,6 +181,34 @@ def record_failure(conn: psycopg.Connection, source: str, error: str) -> None:
     conn.commit()
 
 
+def due_registry_boards(conn: psycopg.Connection,
+                        supported: list[str]) -> list[tuple[str, str, str | None]]:
+    """(ats, slug, company) rows due for polling under the adaptive policy:
+    hourly while fresh (new job in the last 7 days, or never polled),
+    6-hourly when quiet 7-30 days, daily beyond that. Round-robin capped
+    so a big harvest can't blow the cycle budget."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """select ats, slug, company from ats_registry
+               where active and ats = any(%(supported)s)
+                 and (last_polled is null or last_polled < now() - make_interval(mins =>
+                       case when last_new_job_at is null
+                                 or last_new_job_at > now() - interval '7 days'
+                            then %(fresh)s
+                            when last_new_job_at > now() - interval '30 days'
+                            then %(quiet)s
+                            else %(cold)s end))
+               order by last_polled asc nulls first
+               limit %(cap)s""",
+            {"supported": supported,
+             "fresh": config.REGISTRY_FRESH_MIN,
+             "quiet": config.REGISTRY_QUIET_MIN,
+             "cold": config.REGISTRY_COLD_MIN,
+             "cap": config.REGISTRY_MAX_PER_CYCLE},
+        )
+        return cur.fetchall()
+
+
 def touch_registry(conn: psycopg.Connection, ats: str, slug: str,
                    status: int, new_jobs: int) -> None:
     with conn.cursor() as cur:
