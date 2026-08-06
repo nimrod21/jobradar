@@ -77,9 +77,8 @@ class Api:
             for t in trackers:
                 where, params = self._tracker_where(t)
                 cur.execute(
-                    f"""select count(*) n from jobs j where {where}
-                        and j.first_seen_at > coalesce(%(lva)s, '-infinity'::timestamptz)""",
-                    {**params, "lva": t["last_viewed_at"]},
+                    f"select count(*) n from jobs j where {where} and j.viewed_at is null",
+                    params,
                 )
                 t["new_count"] = cur.fetchone()["n"]
         return trackers
@@ -118,30 +117,20 @@ class Api:
     # NB: no parameter may be named `window` — pywebview mirrors Python param
     # names into the generated JS stub, and it would shadow the global window.
     def open_tracker(self, tracker_id: int, query: str = "", win: str = "") -> dict:
-        """Applies the new-since-last-opened semantics: the previous
-        last_viewed_at is the partition point, then it moves to now()."""
-        with self._db().cursor() as cur:
-            cur.execute("select * from trackers where id = %s", (tracker_id,))
-            t = cur.fetchone()
-            if not t:
-                return {"jobs": [], "new_mark": None}
-            new_mark = t["last_viewed_at"]
-            cur.execute("update trackers set last_viewed_at = now() where id = %s",
-                        (tracker_id,))
-        jobs = self._query_jobs(t, query, new_mark, win)
-        return {"jobs": jobs, "new_mark": _iso(new_mark), "tracker": _row_out(t)}
-
-    def search(self, tracker_id: int, query: str = "", win: str = "") -> dict:
-        """Same query, no viewed side effect. `win` is a session-only
-        override of the tracker's date window (the view chips)."""
+        """A job stays 'new' until it is individually opened (get_job) —
+        opening the tracker itself marks nothing as read."""
         with self._db().cursor() as cur:
             cur.execute("select * from trackers where id = %s", (tracker_id,))
             t = cur.fetchone()
         if not t:
             return {"jobs": []}
-        return {"jobs": self._query_jobs(t, query, t["last_viewed_at"], win)}
+        return {"jobs": self._query_jobs(t, query, win), "tracker": _row_out(t)}
 
-    def _query_jobs(self, t: dict, query: str, new_mark, win: str = "") -> list[dict]:
+    def search(self, tracker_id: int, query: str = "", win: str = "") -> dict:
+        """`win` is a session-only override of the tracker's date window."""
+        return self.open_tracker(tracker_id, query, win)
+
+    def _query_jobs(self, t: dict, query: str, win: str = "") -> list[dict]:
         t = dict(t)
         if win in (*_WINDOWS, "all"):
             t["date_window"] = win
@@ -152,11 +141,9 @@ class Api:
             params["q"] = query.strip()
             rank = ("ts_rank(j.search_vec, websearch_to_tsquery('english', %(q)s)) desc, "
                     + rank)
-        params["mark"] = new_mark
         with self._db().cursor() as cur:
             cur.execute(
-                f"""select {_JOB_COLS},
-                      j.first_seen_at > coalesce(%(mark)s, 'infinity'::timestamptz) as is_new
+                f"""select {_JOB_COLS}, j.viewed_at is null as is_new
                     from jobs j where {where}
                     order by {rank} limit 2000""",
                 params,
@@ -208,7 +195,11 @@ class Api:
     # -- jobs --------------------------------------------------------------
 
     def get_job(self, job_id: int) -> dict | None:
+        """Opening a job in the detail pane is what marks it read."""
         with self._db().cursor() as cur:
+            cur.execute(
+                "update jobs set viewed_at = coalesce(viewed_at, now()) where id = %s",
+                (job_id,))
             cur.execute(
                 f"select {_JOB_COLS}, j.description, j.description_html, false as is_new "
                 "from jobs j where j.id = %s", (job_id,))

@@ -89,7 +89,7 @@ async function openTracker(id) {
   renderSkeleton();
   const res = await api().open_tracker(id, "", "");
   state.jobs = res.jobs;
-  state.selected = state.jobs.length ? 0 : -1;
+  state.selected = -1;   // nothing auto-opens; opening is what marks a job read
   renderChips(res.tracker ? res.tracker.date_window : "14d");
   renderResults();
   renderDetailForSelection();
@@ -100,7 +100,7 @@ const rerunSearch = debounce(async () => {
   if (state.view !== "tracker" || state.trackerId == null) return;
   const res = await api().search(state.trackerId, state.query, state.windowOverride || "");
   state.jobs = res.jobs;
-  state.selected = state.jobs.length ? 0 : -1;
+  state.selected = -1;
   renderResults();
   renderDetailForSelection();
 }, 250);
@@ -203,6 +203,22 @@ function selectRow(i) {
 
 /* ---------- detail pane ---------- */
 
+function markReadLocally(j) {
+  if (!j.is_new) return;
+  j.is_new = false;
+  const row = document.querySelector(`#results .row[data-i="${state.jobs.indexOf(j)}"] .new-dot`);
+  if (row) row.remove();
+  const t = state.trackers.find((x) => x.id === state.trackerId);
+  if (t && t.new_count > 0) {
+    t.new_count -= 1;
+    const badge = document.querySelector(`.tracker-item[data-id="${t.id}"] .t-count`);
+    if (badge) {
+      if (t.new_count === 0) badge.remove();
+      else badge.textContent = t.new_count > 99 ? "99+" : String(t.new_count);
+    }
+  }
+}
+
 async function renderDetailForSelection() {
   const d = $("#detail");
   const j = state.jobs[state.selected];
@@ -211,7 +227,8 @@ async function renderDetailForSelection() {
     d.append(el("div", "empty-pane", "Select a job"));
     return;
   }
-  const full = await api().get_job(j.id);
+  const full = await api().get_job(j.id);   // server marks it read
+  markReadLocally(j);
   if (!full || state.jobs[state.selected]?.id !== full.id) return;
   d.innerHTML = "";
 
