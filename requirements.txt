@@ -1,0 +1,7 @@
+httpx
+feedparser
+selectolax
+psycopg[binary]
+python-dotenv
+pywebview
+pytest

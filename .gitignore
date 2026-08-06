@@ -1,0 +1,9 @@
+.env
+jobradar.toml
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
+*.spec
+.pytest_cache/
