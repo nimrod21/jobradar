@@ -1,0 +1,20 @@
+# /etc/systemd/system/jobradar-worker.service
+# Second service alongside devlabs-worker on the same box.
+# Nice=10 so it never competes for CPU on a shared micro instance.
+
+[Unit]
+Description=JobRadar worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/jobradar
+EnvironmentFile=/opt/jobradar/.env
+ExecStart=/opt/jobradar/.venv/bin/python -m worker.main
+Restart=always
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

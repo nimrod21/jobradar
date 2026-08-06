@@ -29,8 +29,16 @@ theme = "dark"
 
 
 def _base_dir() -> Path:
+    """Where jobradar.toml lives: next to the binary, or the repo root in dev."""
     if getattr(sys, "frozen", False):  # PyInstaller
         return Path(sys.executable).parent
+    return Path(__file__).resolve().parent.parent
+
+
+def _asset_dir() -> Path:
+    """Where app/web lives: the onefile extraction dir when frozen."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # noqa: SLF001
     return Path(__file__).resolve().parent.parent
 
 
@@ -68,7 +76,7 @@ def main() -> None:
     api = Api(database_url, cfg, save_config)
     webview.create_window(
         "JobRadar",
-        str(_base_dir() / "app" / "web" / "index.html"),
+        str(_asset_dir() / "app" / "web" / "index.html"),
         js_api=api,
         width=1280,
         height=820,
