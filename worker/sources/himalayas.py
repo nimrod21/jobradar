@@ -25,10 +25,13 @@ class Himalayas:
             if not title or not url:
                 continue
             locs = item.get("locationRestrictions") or []
+            company = item.get("companyName")
+            if not company or company == "name":  # their API leaks a template var
+                company = (item.get("companySlug") or "").replace("-", " ").title() or None
             jobs.append(RawJob(
                 source=self.name,
                 title=title,
-                company=item.get("companyName"),
+                company=company,
                 location=", ".join(locs) if locs else None,
                 description_html=item.get("description"),
                 apply_url=url,

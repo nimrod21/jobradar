@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>JobRadar</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <aside id="sidebar">
+    <div class="side-head">
+      <span class="logo">JobRadar</span>
+      <button id="theme-toggle" class="btn-quiet btn-icon" title="Toggle theme">◐</button>
+    </div>
+
+    <div class="side-label">Trackers</div>
+    <nav id="tracker-list"></nav>
+    <button id="new-tracker" class="btn-quiet side-new">+ new tracker</button>
+
+    <div class="side-spacer"></div>
+    <div class="side-divider"></div>
+    <button id="nav-applied" class="tracker-item applied-nav">
+      <span class="t-name">✓ Applied</span>
+      <span class="t-count" id="applied-count" hidden>0</span>
+    </button>
+  </aside>
+
+  <main id="main">
+    <div id="banner" hidden></div>
+
+    <header id="topbar">
+      <input id="search" type="search" placeholder="search within tracker…"
+             autocomplete="off" spellcheck="false">
+      <div id="window-chips" class="chips">
+        <button class="chip" data-w="24h">24h</button>
+        <button class="chip" data-w="7d">7d</button>
+        <button class="chip" data-w="14d">14d</button>
+        <button class="chip" data-w="30d">30d</button>
+        <button class="chip" data-w="all">all</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <section id="results" tabindex="0"></section>
+      <section id="detail"><div class="empty-pane">Select a job</div></section>
+    </div>
+
+    <div id="applied-view" hidden>
+      <div class="applied-col">
+        <h2>To confirm <span class="muted">— did you actually apply?</span></h2>
+        <div id="applied-pending"></div>
+        <h2 class="applied-done-h">Applied</h2>
+        <div id="applied-done"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="modal-backdrop" hidden>
+  <div id="tracker-modal">
+    <h2 id="modal-title">New tracker</h2>
+    <label>Name
+      <input id="f-name" type="text" placeholder="AI engineering">
+    </label>
+    <label>Include terms <span class="hint">any match · Enter adds</span>
+      <div class="chip-input" id="f-include"></div>
+    </label>
+    <label>Exclude terms <span class="hint">optional</span>
+      <div class="chip-input" id="f-exclude"></div>
+    </label>
+    <label>Exclude companies <span class="hint">optional</span>
+      <div class="chip-input" id="f-exclude-co"></div>
+    </label>
+    <div class="form-row">
+      <label>Window
+        <div class="chips" id="f-window">
+          <button class="chip" data-w="24h">24h</button>
+          <button class="chip" data-w="7d">7d</button>
+          <button class="chip active" data-w="14d">14d</button>
+          <button class="chip" data-w="30d">30d</button>
+          <button class="chip" data-w="all">all</button>
+        </div>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Location
+        <select id="f-locmode">
+          <option value="any">any — badges still shown</option>
+          <option value="remote">remote — and no hard geo blockers</option>
+          <option value="text">text match…</option>
+          <option value="region">region…</option>
+        </select>
+      </label>
+      <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Value</span>
+        <input id="f-locvalue" type="text">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <span id="f-delete" class="danger-link" hidden>Delete tracker</span>
+      <span class="flex-spacer"></span>
+      <button id="f-cancel" class="btn-quiet">Cancel</button>
+      <button id="f-save" class="btn-primary">Save tracker</button>
+    </div>
+  </div>
+</div>
+
+<div id="ctx-menu" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
