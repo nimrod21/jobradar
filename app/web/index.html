@@ -75,13 +75,13 @@
     <label>Name
       <input id="f-name" type="text" placeholder="AI engineering">
     </label>
-    <label>Include Terms <span class="hint">any match · Enter adds</span>
+    <label>Include Terms <span class="hint">any match · separate with commas</span>
       <div class="chip-input" id="f-include"></div>
     </label>
-    <label>Exclude Terms <span class="hint">optional</span>
+    <label>Exclude Terms <span class="hint">optional · separate with commas</span>
       <div class="chip-input" id="f-exclude"></div>
     </label>
-    <label>Exclude Companies <span class="hint">optional</span>
+    <label>Exclude Companies <span class="hint">optional · separate with commas</span>
       <div class="chip-input" id="f-exclude-co"></div>
     </label>
     <label>Window
@@ -97,12 +97,13 @@
       <select id="f-locmode">
         <option value="any">Anywhere — geo badges still shown</option>
         <option value="remote">Remote — and no hard geo blockers</option>
-        <option value="text">Location contains text…</option>
-        <option value="region">Region…</option>
+        <option value="text">Custom terms — define your own match</option>
+        <option value="region">Region preset…</option>
       </select>
     </label>
-    <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Text to Match</span>
-      <input id="f-locvalue" type="text" placeholder="e.g. Tbilisi, Europe, EMEA">
+    <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Location Terms</span>
+      <span class="hint" id="f-locvalue-hint">any match · separate with commas · checked against location, title and description</span>
+      <input id="f-locvalue" type="text" placeholder="e.g. Tbilisi, Georgia, EMEA, CET">
       <select id="f-locregion" hidden>
         <option value="georgia">Georgia — the country, Atlanta filtered out</option>
         <option value="caucasus">Caucasus — Georgia · Armenia · Azerbaijan</option>

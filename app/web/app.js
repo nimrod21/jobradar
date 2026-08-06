@@ -413,17 +413,24 @@ function makeChipInput(id) {
       wrap.insertBefore(tag, input);
     }
   };
+  const commit = () => {
+    const parts = input.value.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length) { values.push(...parts); render(); }
+    input.value = "";
+  };
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && input.value.trim()) {
-      values.push(input.value.trim());
-      input.value = "";
-      render();
+    if (e.key === "Enter") {
+      commit();
       e.preventDefault();
     } else if (e.key === "Backspace" && !input.value && values.length) {
       values.pop();
       render();
     }
   });
+  input.addEventListener("input", () => {           // typed or pasted commas split immediately
+    if (input.value.includes(",")) commit();
+  });
+  input.addEventListener("blur", commit);           // stragglers aren't lost on Save
   wrap.addEventListener("click", () => input.focus());
   return {
     get: () => [...values],
@@ -457,7 +464,8 @@ function updateLocValue() {
   const mode = $("#f-locmode").value;
   const isRegion = mode === "region";
   $("#f-locvalue-wrap").hidden = !(mode === "text" || isRegion);
-  $("#f-locvalue-label").textContent = isRegion ? "Region" : "Text to Match";
+  $("#f-locvalue-label").textContent = isRegion ? "Region" : "Location Terms";
+  $("#f-locvalue-hint").hidden = isRegion;
   $("#f-locvalue").hidden = isRegion;
   $("#f-locregion").hidden = !isRegion;
 }

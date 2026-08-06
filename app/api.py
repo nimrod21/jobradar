@@ -103,9 +103,17 @@ class Api:
             clauses.append("j.remote_flag and not (j.geo_flags && %(blockers)s)")
             params["blockers"] = _HARD_BLOCKERS
         elif mode == "text" and value:
-            clauses.append("""(j.location_raw ilike %(locv)s or j.title ilike %(locv)s
-                              or j.description ilike %(locv)s)""")
-            params["locv"] = f"%{value}%"
+            # comma-separated custom terms, any match — the non-hardcoded
+            # counterpart to the region presets
+            ors = []
+            for i, term in enumerate(t.strip() for t in value.split(",")):
+                if not term:
+                    continue
+                params[f"locv{i}"] = f"%{term}%"
+                ors.append(f"(j.location_raw ilike %(locv{i})s or j.title ilike %(locv{i})s"
+                           f" or j.description ilike %(locv{i})s)")
+            if ors:
+                clauses.append("(" + " or ".join(ors) + ")")
         elif mode == "region" and value in REGION_GROUPS:
             clauses.append("j.location_raw ilike any(%(regterms)s)")
             params["regterms"] = [f"%{term}%" for term in REGION_GROUPS[value]]
