@@ -160,6 +160,8 @@ class Api:
             "location_mode": fields.get("location_mode") or "any",
             "location_value": (fields.get("location_value") or "").strip() or None,
         }
+        if cols["location_mode"] == "region" and cols["location_value"]:
+            cols["location_value"] = cols["location_value"].lower()
         with self._db().cursor() as cur:
             if fields.get("id"):
                 cur.execute(

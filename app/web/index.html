@@ -23,7 +23,7 @@
 
     <div class="side-label">Trackers</div>
     <nav id="tracker-list"></nav>
-    <button id="new-tracker" class="side-new">+ new tracker</button>
+    <button id="new-tracker" class="side-new">+ New Tracker</button>
 
     <div class="side-spacer"></div>
     <div class="side-divider"></div>
@@ -37,15 +37,19 @@
     <div id="banner" hidden></div>
 
     <header id="topbar">
-      <input id="search" type="search" placeholder="search within tracker…"
-             autocomplete="off" spellcheck="false">
-      <span id="result-count"></span>
-      <div id="window-chips" class="chips">
-        <button class="chip" data-w="24h">24h</button>
-        <button class="chip" data-w="7d">7d</button>
-        <button class="chip" data-w="14d">14d</button>
-        <button class="chip" data-w="30d">30d</button>
-        <button class="chip" data-w="all">all</button>
+      <div class="topbar-left">
+        <input id="search" type="search" placeholder="Search"
+               autocomplete="off" spellcheck="false">
+      </div>
+      <div class="topbar-right">
+        <span id="result-count"></span>
+        <div id="window-chips" class="chips">
+          <button class="chip" data-w="24h">24h</button>
+          <button class="chip" data-w="7d">7d</button>
+          <button class="chip" data-w="14d">14d</button>
+          <button class="chip" data-w="30d">30d</button>
+          <button class="chip" data-w="all">All</button>
+        </div>
       </div>
     </header>
 
@@ -67,48 +71,50 @@
 
 <div id="modal-backdrop" hidden>
   <div id="tracker-modal">
-    <h2 id="modal-title">New tracker</h2>
+    <h2 id="modal-title">New Tracker</h2>
     <label>Name
       <input id="f-name" type="text" placeholder="AI engineering">
     </label>
-    <label>Include terms <span class="hint">any match · Enter adds</span>
+    <label>Include Terms <span class="hint">any match · Enter adds</span>
       <div class="chip-input" id="f-include"></div>
     </label>
-    <label>Exclude terms <span class="hint">optional</span>
+    <label>Exclude Terms <span class="hint">optional</span>
       <div class="chip-input" id="f-exclude"></div>
     </label>
-    <label>Exclude companies <span class="hint">optional</span>
+    <label>Exclude Companies <span class="hint">optional</span>
       <div class="chip-input" id="f-exclude-co"></div>
     </label>
-    <div class="form-row">
-      <label>Window
-        <div class="chips" id="f-window">
-          <button class="chip" data-w="24h">24h</button>
-          <button class="chip" data-w="7d">7d</button>
-          <button class="chip active" data-w="14d">14d</button>
-          <button class="chip" data-w="30d">30d</button>
-          <button class="chip" data-w="all">all</button>
-        </div>
-      </label>
-    </div>
-    <div class="form-row">
-      <label>Location
-        <select id="f-locmode">
-          <option value="any">any — badges still shown</option>
-          <option value="remote">remote — and no hard geo blockers</option>
-          <option value="text">text match…</option>
-          <option value="region">region…</option>
-        </select>
-      </label>
-      <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Value</span>
-        <input id="f-locvalue" type="text">
-      </label>
-    </div>
+    <label>Window
+      <div class="chips" id="f-window">
+        <button class="chip" data-w="24h">24h</button>
+        <button class="chip" data-w="7d">7d</button>
+        <button class="chip active" data-w="14d">14d</button>
+        <button class="chip" data-w="30d">30d</button>
+        <button class="chip" data-w="all">All</button>
+      </div>
+    </label>
+    <label>Location
+      <select id="f-locmode">
+        <option value="any">Anywhere — geo badges still shown</option>
+        <option value="remote">Remote — and no hard geo blockers</option>
+        <option value="text">Location contains text…</option>
+        <option value="region">Region…</option>
+      </select>
+    </label>
+    <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Text to Match</span>
+      <input id="f-locvalue" type="text" placeholder="e.g. Tbilisi, Europe, EMEA">
+      <select id="f-locregion" hidden>
+        <option value="georgia">Georgia — the country, Atlanta filtered out</option>
+        <option value="caucasus">Caucasus — Georgia · Armenia · Azerbaijan</option>
+        <option value="emea">EMEA / Europe</option>
+        <option value="global">Global — worldwide, anywhere</option>
+      </select>
+    </label>
     <div class="modal-actions">
-      <span id="f-delete" class="danger-link" hidden>Delete tracker</span>
+      <span id="f-delete" class="danger-link" hidden>Delete Tracker</span>
       <span class="flex-spacer"></span>
       <button id="f-cancel" class="btn-quiet">Cancel</button>
-      <button id="f-save" class="btn-primary">Save tracker</button>
+      <button id="f-save" class="btn-primary">Save Tracker</button>
     </div>
   </div>
 </div>

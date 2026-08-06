@@ -170,13 +170,16 @@ function renderResults() {
     if (j.company) meta.append(el("span", "co m", j.company));
     if (j.location_raw) meta.append(el("span", "m", j.location_raw));
     meta.append(el("span", "m", timeAgo(j.posted_at) + (j.posted_at_confident ? "" : "?")));
-    if (j.sources?.length) meta.append(el("span", "badge b-src", srcBase(j.sources[0])));
-    if (j.source_count > 1) meta.append(el("span", "badge b-src", "×" + j.source_count));
-    if (j.remote_flag) meta.append(el("span", "badge b-remote", "remote"));
-    for (const f of (j.geo_flags || []).slice(0, 2)) {
-      meta.append(el("span", "badge b-geo", "⚠ " + f));
-    }
     row.append(meta);
+
+    const badges = el("div", "row-badges");   // always its own line, never inline
+    if (j.sources?.length) badges.append(el("span", "badge b-src", srcBase(j.sources[0])));
+    if (j.source_count > 1) badges.append(el("span", "badge b-src", "×" + j.source_count));
+    if (j.remote_flag) badges.append(el("span", "badge b-remote", "remote"));
+    for (const f of (j.geo_flags || []).slice(0, 2)) {
+      badges.append(el("span", "badge b-geo", "⚠ " + f));
+    }
+    row.append(badges);
 
     row.addEventListener("click", () => selectRow(i));
     row.addEventListener("contextmenu", (e) => {
@@ -230,7 +233,7 @@ function emptyDetail(d) {
   box.append(rings);
   box.append(el("div", null, "Select a job"));
   const hints = el("div", "key-hints");
-  hints.innerHTML = "<kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> apply · <kbd>n i a d</kbd> status · <kbd>/</kbd> search";
+  hints.innerHTML = "<kbd>↑</kbd><kbd>↓</kbd> Move · <kbd>Enter</kbd> Apply · <kbd>n i a d</kbd> Status · <kbd>/</kbd> Search";
   box.append(hints);
   d.append(box);
 }
@@ -253,7 +256,7 @@ async function renderDetailForSelection() {
   if (full.company) w.append(el("div", "d-co", full.company));
   const meta = el("div", "d-meta");
   if (full.location_raw) meta.append(el("span", "m", full.location_raw));
-  if (full.posted_at) meta.append(el("span", "m", "posted " + timeAgo(full.posted_at) + " ago" + (full.posted_at_confident ? "" : " (approx)")));
+  if (full.posted_at) meta.append(el("span", "m", "Posted " + timeAgo(full.posted_at) + " ago" + (full.posted_at_confident ? "" : " (approx)")));
   if (full.salary_raw) meta.append(el("span", "m", full.salary_raw));
   if (full.employment_type) meta.append(el("span", "m", full.employment_type));
   if (full.sources?.length) meta.append(el("span", "m", "via " + full.sources.map(srcBase).join(", ")));
@@ -277,7 +280,7 @@ async function renderDetailForSelection() {
 
   const seg = el("div", "seg");
   for (const s of ["new", "interesting", "applied", "dead"]) {
-    const b = el("button", null, s);
+    const b = el("button", null, s[0].toUpperCase() + s.slice(1));
     if (full.status === s) b.classList.add("active");
     b.addEventListener("click", () => setStatus(full.id, s));
     seg.append(b);
@@ -287,7 +290,7 @@ async function renderDetailForSelection() {
 
   const notes = el("textarea");
   notes.id = "d-notes";
-  notes.placeholder = "notes… (autosaves)";
+  notes.placeholder = "Notes — autosaves";
   notes.value = full.notes || "";
   notes.addEventListener("blur", () => api().save_note(full.id, notes.value));
   w.append(notes);
@@ -346,8 +349,8 @@ function appliedRow(j, pending) {
   const t = el("div", "row-title", j.title + (j.company ? " — " + j.company : ""));
   main.append(t);
   const when = pending
-    ? "clicked " + timeAgo(j.apply_clicked_at) + " ago"
-    : "applied " + timeAgo(j.applied_at || j.apply_clicked_at) + " ago";
+    ? "Clicked " + timeAgo(j.apply_clicked_at) + " ago"
+    : "Applied " + timeAgo(j.applied_at || j.apply_clicked_at) + " ago";
   const sub = el("div", "applied-note", when + (j.notes ? "  ·  " + j.notes : ""));
   main.append(sub);
   main.addEventListener("click", () => api().open_url(j.apply_url));
@@ -432,7 +435,7 @@ let editingId = null;
 
 function openModal(tracker) {
   editingId = tracker ? tracker.id : null;
-  $("#modal-title").textContent = tracker ? "Edit tracker" : "New tracker";
+  $("#modal-title").textContent = tracker ? "Edit Tracker" : "New Tracker";
   $("#f-name").value = tracker ? tracker.name : "";
   chipInputs.include.set(tracker?.include_terms);
   chipInputs.exclude.set(tracker?.exclude_terms);
@@ -441,7 +444,9 @@ function openModal(tracker) {
   document.querySelectorAll("#f-window .chip").forEach((c) =>
     c.classList.toggle("active", c.dataset.w === win));
   $("#f-locmode").value = tracker?.location_mode || "any";
-  $("#f-locvalue").value = tracker?.location_value || "";
+  const lv = tracker?.location_value || "";
+  $("#f-locvalue").value = lv;
+  $("#f-locregion").value = ["georgia", "caucasus", "emea", "global"].includes(lv) ? lv : "georgia";
   updateLocValue();
   $("#f-delete").hidden = !tracker;
   $("#modal-backdrop").hidden = false;
@@ -450,13 +455,16 @@ function openModal(tracker) {
 
 function updateLocValue() {
   const mode = $("#f-locmode").value;
-  $("#f-locvalue-wrap").hidden = !(mode === "text" || mode === "region");
-  $("#f-locvalue-label").textContent = mode === "region"
-    ? "Region (georgia / caucasus / emea / global)" : "Text to match";
+  const isRegion = mode === "region";
+  $("#f-locvalue-wrap").hidden = !(mode === "text" || isRegion);
+  $("#f-locvalue-label").textContent = isRegion ? "Region" : "Text to Match";
+  $("#f-locvalue").hidden = isRegion;
+  $("#f-locregion").hidden = !isRegion;
 }
 
 async function saveModal() {
   const win = document.querySelector("#f-window .chip.active")?.dataset.w || "14d";
+  const mode = $("#f-locmode").value;
   const res = await api().save_tracker({
     id: editingId,
     name: $("#f-name").value,
@@ -464,8 +472,8 @@ async function saveModal() {
     exclude_terms: chipInputs.exclude.get(),
     exclude_companies: chipInputs.excludeCo.get(),
     date_window: win,
-    location_mode: $("#f-locmode").value,
-    location_value: $("#f-locvalue").value,
+    location_mode: mode,
+    location_value: mode === "region" ? $("#f-locregion").value : $("#f-locvalue").value,
   });
   $("#modal-backdrop").hidden = true;
   await refreshTrackers();

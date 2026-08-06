@@ -167,14 +167,26 @@ button { font: inherit; color: inherit; }
 }
 
 #topbar {
-  display: flex; align-items: center; gap: 16px;
-  padding: 11px 18px;
+  display: flex; align-items: center;
+  padding: 11px 0;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
 
+/* left zone mirrors the results column width so the search field's edge
+   lands exactly on the list/detail split */
+.topbar-left {
+  flex: 0 0 clamp(380px, 40%, 560px);
+  padding: 0 16px 0 18px;
+}
+.topbar-right {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 18px 0 18px;
+}
+
 #search {
-  flex: none; width: 340px;
+  width: 100%;
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 7.5px 12px;
@@ -262,6 +274,10 @@ button { font: inherit; color: inherit; }
   content: "·";
   color: var(--text-faint);
   margin-right: 7px;
+}
+.row-badges {
+  margin-top: 5px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
 
 .row.st-interesting::after {
@@ -526,10 +542,15 @@ button { font: inherit; color: inherit; }
 }
 .chip-input .tag b { cursor: pointer; font-weight: 600; color: var(--text-dim); }
 .chip-input .tag b:hover { color: var(--danger); }
+/* the inner chip-input field must NOT pick up the modal's generic input
+   styling (that's the double-border bug) — id+attr specificity to win */
+#tracker-modal .chip-input input[type=text],
 .chip-input input {
+  display: inline-block; width: auto;
   border: 0; background: none; color: var(--text);
   font: inherit; font-size: 12.5px;
   flex: 1; min-width: 80px;
+  margin-top: 0;
   padding: 3px 5px;
   outline: none;
 }
