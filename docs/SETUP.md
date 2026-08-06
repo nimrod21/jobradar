@@ -55,11 +55,31 @@ confirm.
 
 ---
 
-## 3. Worker on a VPS (Oracle Cloud free tier example)
+## 3. Keeping the worker always-on
+
+### Option A — GitHub Actions (recommended: no server at all)
+
+The repo ships [`.github/workflows/worker.yml`](../.github/workflows/worker.yml),
+which runs one poll cycle every hour on GitHub's runners. To use it:
+
+1. Fork (or push) this repo on GitHub — the repo can stay public because the
+   only credential lives in a secret, never in the code.
+2. Repo → **Settings → Secrets and variables → Actions → New repository
+   secret**: name `DATABASE_URL`, value = your session-pooler string.
+3. **Actions** tab → enable workflows → open `worker` → **Run workflow** for
+   an immediate first cycle. The hourly cron takes over from there.
+
+Trade-offs: scheduled runs can drift 5–30 minutes under GitHub load (harmless
+here), and GitHub pauses cron workflows in repos with no activity for 60 days
+(any commit re-enables them). Logs are in the Actions tab.
+
+### Option B — a VPS (Oracle Cloud free tier example)
 
 Any always-on Linux box with Python 3.11+ works. Oracle's "Always Free" tier
 includes small AMD/ARM instances that are enough (the worker is I/O-bound and
-`Nice=10`).
+`Nice=10`). **Caveat:** Oracle reclaims *idle* Always Free instances (a
+low-CPU worker looks idle to them); upgrading the account to Pay As You Go
+(card on file, still $0 within free limits) exempts you from idle reclamation.
 
 ### 3a. Create the instance
 

@@ -20,7 +20,7 @@ fi
 
 cd "$DIR"
 [ -d .venv ] || python3 -m venv .venv
-.venv/bin/pip install -q -r requirements.txt
+.venv/bin/pip install -q -r requirements-worker.txt
 
 if [ ! -f .env ]; then
     cp .env.example .env

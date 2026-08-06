@@ -1,0 +1,30 @@
+name: worker
+
+# Serverless worker: GitHub Actions runs one poll cycle every hour.
+# Fork setup: Settings -> Secrets and variables -> Actions -> new secret
+# DATABASE_URL = your Supabase *session pooler* connection string.
+
+on:
+  schedule:
+    - cron: "7 * * * *"   # hourly, offset from :00 when GitHub's queue spikes
+  workflow_dispatch:       # manual "Run workflow" button
+
+concurrency:
+  group: worker            # never two cycles at once; dedupe would survive it, but why
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-worker.txt
+      - run: python -m worker.main --once
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          USER_AGENT: jobradar/1.0 (+https://github.com/${{ github.repository }})

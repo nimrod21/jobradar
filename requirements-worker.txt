@@ -1,0 +1,6 @@
+# Worker-only dependencies (CI / server). The full requirements.txt adds the app.
+httpx
+feedparser
+selectolax
+psycopg[binary]
+python-dotenv
