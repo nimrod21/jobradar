@@ -139,6 +139,9 @@ function renderSkeleton() {
 function renderResults() {
   const r = $("#results");
   r.innerHTML = "";
+  const newCount = state.jobs.filter((j) => j.is_new).length;
+  $("#result-count").textContent = state.jobs.length
+    ? `${state.jobs.length} jobs${newCount ? ` · ${newCount} new` : ""}` : "";
   if (!state.jobs.length) {
     const t = state.trackers.find((x) => x.id === state.trackerId);
     const box = el("div", "empty-state");
@@ -157,20 +160,20 @@ function renderResults() {
     const row = el("div", "row st-" + j.status);
     row.dataset.i = i;
     if (i === state.selected) row.classList.add("selected");
+    if (j.is_new) row.classList.add("is-new");
 
     const title = el("div", "row-title");
-    if (j.is_new) title.append(el("span", "new-dot"));
     title.append(el("span", null, j.title));
     row.append(title);
 
     const meta = el("div", "row-meta");
-    if (j.company) meta.append(el("span", "co", j.company));
-    if (j.location_raw) meta.append(el("span", null, j.location_raw));
-    meta.append(el("span", null, timeAgo(j.posted_at) + (j.posted_at_confident ? "" : "?")));
+    if (j.company) meta.append(el("span", "co m", j.company));
+    if (j.location_raw) meta.append(el("span", "m", j.location_raw));
+    meta.append(el("span", "m", timeAgo(j.posted_at) + (j.posted_at_confident ? "" : "?")));
     if (j.sources?.length) meta.append(el("span", "badge b-src", srcBase(j.sources[0])));
     if (j.source_count > 1) meta.append(el("span", "badge b-src", "×" + j.source_count));
     if (j.remote_flag) meta.append(el("span", "badge b-remote", "remote"));
-    for (const f of (j.geo_flags || []).slice(0, 3)) {
+    for (const f of (j.geo_flags || []).slice(0, 2)) {
       meta.append(el("span", "badge b-geo", "⚠ " + f));
     }
     row.append(meta);
@@ -206,8 +209,8 @@ function selectRow(i) {
 function markReadLocally(j) {
   if (!j.is_new) return;
   j.is_new = false;
-  const row = document.querySelector(`#results .row[data-i="${state.jobs.indexOf(j)}"] .new-dot`);
-  if (row) row.remove();
+  const row = document.querySelector(`#results .row[data-i="${state.jobs.indexOf(j)}"]`);
+  if (row) row.classList.remove("is-new");
   const t = state.trackers.find((x) => x.id === state.trackerId);
   if (t && t.new_count > 0) {
     t.new_count -= 1;
@@ -219,34 +222,48 @@ function markReadLocally(j) {
   }
 }
 
+function emptyDetail(d) {
+  d.innerHTML = "";
+  const box = el("div", "empty-pane");
+  const rings = el("div", "radar-rings");
+  rings.append(el("i"), el("i"), el("i"), el("b"));
+  box.append(rings);
+  box.append(el("div", null, "Select a job"));
+  const hints = el("div", "key-hints");
+  hints.innerHTML = "<kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> apply · <kbd>n i a d</kbd> status · <kbd>/</kbd> search";
+  box.append(hints);
+  d.append(box);
+}
+
 async function renderDetailForSelection() {
   const d = $("#detail");
   const j = state.jobs[state.selected];
   if (!j) {
-    d.innerHTML = "";
-    d.append(el("div", "empty-pane", "Select a job"));
+    emptyDetail(d);
     return;
   }
   const full = await api().get_job(j.id);   // server marks it read
   markReadLocally(j);
   if (!full || state.jobs[state.selected]?.id !== full.id) return;
   d.innerHTML = "";
+  const w = el("div", "d-wrap");
+  d.append(w);
 
-  d.append(el("div", "d-title", full.title));
-  if (full.company) d.append(el("div", "d-co", full.company));
-  const meta = [];
-  if (full.location_raw) meta.push(full.location_raw);
-  if (full.posted_at) meta.push("posted " + timeAgo(full.posted_at) + " ago" + (full.posted_at_confident ? "" : " (approx)"));
-  if (full.salary_raw) meta.push(full.salary_raw);
-  if (full.employment_type) meta.push(full.employment_type);
-  if (full.sources?.length) meta.push("via " + full.sources.map(srcBase).join(", "));
-  d.append(el("div", "d-meta", meta.join("  ·  ")));
+  w.append(el("div", "d-title", full.title));
+  if (full.company) w.append(el("div", "d-co", full.company));
+  const meta = el("div", "d-meta");
+  if (full.location_raw) meta.append(el("span", "m", full.location_raw));
+  if (full.posted_at) meta.append(el("span", "m", "posted " + timeAgo(full.posted_at) + " ago" + (full.posted_at_confident ? "" : " (approx)")));
+  if (full.salary_raw) meta.append(el("span", "m", full.salary_raw));
+  if (full.employment_type) meta.append(el("span", "m", full.employment_type));
+  if (full.sources?.length) meta.append(el("span", "m", "via " + full.sources.map(srcBase).join(", ")));
+  w.append(meta);
 
   const badges = el("div", "d-badges");
   if (full.remote_flag) badges.append(el("span", "badge b-remote", "remote"));
   for (const f of full.geo_flags || []) badges.append(el("span", "badge b-geo", "⚠ " + f));
   if (full.source_count > 1) badges.append(el("span", "badge b-src", "on " + full.source_count + " boards"));
-  if (badges.children.length) d.append(badges);
+  if (badges.children.length) w.append(badges);
 
   const actions = el("div", "d-actions");
   const apply = el("button", "btn-primary", full.apply_clicked_at ? "Apply ↗ (clicked)" : "Apply ↗");
@@ -266,14 +283,14 @@ async function renderDetailForSelection() {
     seg.append(b);
   }
   actions.append(seg);
-  d.append(actions);
+  w.append(actions);
 
   const notes = el("textarea");
   notes.id = "d-notes";
   notes.placeholder = "notes… (autosaves)";
   notes.value = full.notes || "";
   notes.addEventListener("blur", () => api().save_note(full.id, notes.value));
-  d.append(notes);
+  w.append(notes);
 
   const desc = el("div", "d-desc");
   if (full.description_html) {
@@ -285,7 +302,7 @@ async function renderDetailForSelection() {
   } else {
     desc.append(el("p", "muted", "No description captured."));
   }
-  d.append(desc);
+  w.append(desc);
 }
 
 async function setStatus(jobId, status) {

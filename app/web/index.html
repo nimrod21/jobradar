@@ -10,13 +10,20 @@
 <div id="app">
   <aside id="sidebar">
     <div class="side-head">
+      <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-opacity=".55" stroke-width="1.5"/>
+        <path d="M12 12 L20.5 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor"/>
+        <circle cx="16.4" cy="15.2" r="1.6" fill="currentColor"/>
+      </svg>
       <span class="logo">JobRadar</span>
       <button id="theme-toggle" class="btn-quiet btn-icon" title="Toggle theme">◐</button>
     </div>
 
     <div class="side-label">Trackers</div>
     <nav id="tracker-list"></nav>
-    <button id="new-tracker" class="btn-quiet side-new">+ new tracker</button>
+    <button id="new-tracker" class="side-new">+ new tracker</button>
 
     <div class="side-spacer"></div>
     <div class="side-divider"></div>
@@ -32,6 +39,7 @@
     <header id="topbar">
       <input id="search" type="search" placeholder="search within tracker…"
              autocomplete="off" spellcheck="false">
+      <span id="result-count"></span>
       <div id="window-chips" class="chips">
         <button class="chip" data-w="24h">24h</button>
         <button class="chip" data-w="7d">7d</button>
