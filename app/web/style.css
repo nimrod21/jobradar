@@ -555,9 +555,9 @@ button { font: inherit; color: inherit; }
   outline: none;
 }
 
-#f-window { border: 0; background: none; padding: 0; margin-left: 0; gap: 5px; }
-#f-window .chip { border: 1px solid var(--border); }
-#f-window .chip.active { border-color: var(--accent-border); }
+#f-window, #f-workmodes { border: 0; background: none; padding: 0; margin-left: 0; gap: 5px; margin-top: 5px; }
+#f-window .chip, #f-workmodes .chip { border: 1px solid var(--border); }
+#f-window .chip.active, #f-workmodes .chip.active { border-color: var(--accent-border); }
 
 .form-row { display: flex; gap: 14px; }
 .form-row label { flex: 1; }

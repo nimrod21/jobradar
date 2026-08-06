@@ -1,4 +1,4 @@
-from worker.geo import detect_geo_flags, detect_remote, match_region
+from worker.geo import detect_geo_flags, detect_remote, match_country, match_region
 
 
 def test_remote_from_source_hint():
@@ -48,21 +48,29 @@ def test_no_flags_on_clean_posting():
 
 
 def test_georgia_country_matches():
-    assert match_region("Tbilisi, Georgia", "georgia")
-    assert match_region("Georgia", "georgia")
-    assert match_region("საქართველო", "georgia")
+    assert match_country("Tbilisi, Georgia", "Georgia")
+    assert match_country("Georgia", "Georgia")
 
 
 def test_georgia_us_state_rejected():
-    assert not match_region("Georgia, United States", "georgia")
-    assert not match_region("Georgia, US", "georgia")
-    assert not match_region("Atlanta, GA", "georgia")
-    assert not match_region("GA, USA", "georgia")
-    assert not match_region("Atlanta, Georgia", "georgia")
+    assert not match_country("Georgia, United States", "Georgia")
+    assert not match_country("Georgia, US", "Georgia")
+    assert not match_country("Atlanta, GA", "Georgia")
+    assert not match_country("GA, USA", "Georgia")
+    assert not match_country("Atlanta, Georgia", "Georgia")
 
 
-def test_other_regions():
+def test_country_word_boundary():
+    assert match_country("Mumbai, India", "India")
+    assert not match_country("Indianapolis, Indiana", "India")
+
+
+def test_regions():
     assert match_region("EMEA", "emea")
     assert match_region("Anywhere in Europe", "emea")
     assert match_region("Worldwide", "global")
-    assert not match_region("Boston, US", "emea")
+    assert match_region("Singapore", "apac")
+    assert match_region("São Paulo, Brazil", "latam")
+    assert match_region("Tbilisi, Georgia", "caucasus")
+    assert not match_region("Atlanta, GA", "caucasus")
+    assert not match_region("Boston", "emea")

@@ -452,8 +452,12 @@ function openModal(tracker) {
     c.classList.toggle("active", c.dataset.w === win));
   $("#f-locmode").value = tracker?.location_mode || "any";
   const lv = tracker?.location_value || "";
-  $("#f-locvalue").value = lv;
-  $("#f-locregion").value = ["georgia", "caucasus", "emea", "global"].includes(lv) ? lv : "georgia";
+  $("#f-locvalue").value = tracker?.location_mode === "region" ? "" : lv;
+  const regionKeys = [...document.querySelectorAll("#f-locregion option")].map((o) => o.value);
+  $("#f-locregion").value = regionKeys.includes(lv) ? lv : "emea";
+  const wm = tracker?.work_modes || [];
+  document.querySelectorAll("#f-workmodes .chip").forEach((c) =>
+    c.classList.toggle("active", wm.includes(c.dataset.m)));
   updateLocValue();
   $("#f-delete").hidden = !tracker;
   $("#modal-backdrop").hidden = false;
@@ -462,12 +466,23 @@ function openModal(tracker) {
 
 function updateLocValue() {
   const mode = $("#f-locmode").value;
-  const isRegion = mode === "region";
-  $("#f-locvalue-wrap").hidden = !(mode === "text" || isRegion);
-  $("#f-locvalue-label").textContent = isRegion ? "Region" : "Location Terms";
-  $("#f-locvalue-hint").hidden = isRegion;
-  $("#f-locvalue").hidden = isRegion;
-  $("#f-locregion").hidden = !isRegion;
+  $("#f-locvalue-wrap").hidden = mode === "any";
+  $("#f-locregion").hidden = mode !== "region";
+  $("#f-locvalue").hidden = !(mode === "country" || mode === "place");
+  $("#f-locvalue-hint").hidden = mode !== "place";
+  if (mode === "region") $("#f-locvalue-label").textContent = "Region";
+  if (mode === "country") {
+    $("#f-locvalue-label").textContent = "Country";
+    $("#f-locvalue").placeholder = "e.g. Georgia, Germany, Japan";
+  }
+  if (mode === "place") {
+    $("#f-locvalue-label").textContent = "City or Keyword";
+    $("#f-locvalue").placeholder = "e.g. Tbilisi, Berlin, CET";
+  }
+}
+
+function workModes() {
+  return [...document.querySelectorAll("#f-workmodes .chip.active")].map((c) => c.dataset.m);
 }
 
 async function saveModal() {
@@ -480,6 +495,7 @@ async function saveModal() {
     exclude_terms: chipInputs.exclude.get(),
     exclude_companies: chipInputs.excludeCo.get(),
     date_window: win,
+    work_modes: workModes(),
     location_mode: mode,
     location_value: mode === "region" ? $("#f-locregion").value : $("#f-locvalue").value,
   });
@@ -621,6 +637,10 @@ window.addEventListener("pywebviewready", () => {
     if (!chip) return;
     document.querySelectorAll("#f-window .chip").forEach((c) =>
       c.classList.toggle("active", c === chip));
+  });
+  $("#f-workmodes").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (chip) chip.classList.toggle("active");   // multi-select toggles
   });
   $("#f-delete").addEventListener("click", () => {
     const t = state.trackers.find((x) => x.id === editingId);

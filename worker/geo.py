@@ -71,11 +71,19 @@ def detect_geo_flags(*texts: str | None) -> list[str]:
 
 # --- Regions (tracker 'region' mode) ---------------------------------------
 
+# Broad industry regions — shortcuts, freely editable. Country- and
+# city-level filtering is free text (tracker 'country' / 'place' modes),
+# so nothing here limits anyone.
 REGION_GROUPS: dict[str, list[str]] = {
-    "georgia": ["georgia", "tbilisi", "საქართველო"],
+    "emea": ["emea", "europe", "european", "cet", "gmt", "united kingdom", " uk"],
+    "apac": ["apac", "asia", "australia", "new zealand", "singapore", "japan", "india"],
+    "latam": ["latam", "latin america", "south america", "brazil", "mexico",
+              "argentina", "colombia", "costa rica"],
+    "north-america": ["north america", "united states", "usa", "u.s.", "canada"],
+    "africa": ["africa", "nigeria", "kenya", "egypt"],
+    "middle-east": ["middle east", "uae", "dubai", "israel", "saudi"],
     "caucasus": ["georgia", "tbilisi", "armenia", "yerevan", "azerbaijan", "baku"],
-    "emea": ["emea", "europe", "european", " eu", "cet", "gmt"],
-    "global": ["worldwide", "work from anywhere", "anywhere", "global remote", "global"],
+    "global": ["worldwide", "work from anywhere", "anywhere", "global"],
 }
 
 # Georgia the country, not the US state. Any of these in the location string
@@ -99,6 +107,17 @@ def match_region(location_raw: str | None, region: str) -> bool:
     if not terms:
         return False
     loc = location_raw.lower()
-    if region in ("georgia", "caucasus") and US_GEORGIA.search(loc):
+    if region == "caucasus" and US_GEORGIA.search(loc):
         return False
     return any(t in loc for t in terms)
+
+
+def match_country(location_raw: str | None, country: str) -> bool:
+    """Word-boundary match on the location string. 'Georgia' gets the
+    US-state veto so the country never matches Atlanta."""
+    if not location_raw or not country:
+        return False
+    if country.strip().lower() == "georgia" and US_GEORGIA.search(location_raw):
+        return False
+    return re.search(r"\b" + re.escape(country.strip()) + r"\b",
+                     location_raw, re.IGNORECASE) is not None

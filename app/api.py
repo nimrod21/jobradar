@@ -19,8 +19,9 @@ from .sanitize import sanitize_html
 
 _WINDOWS = {"24h": "24 hours", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
 _STATUSES = {"new", "interesting", "applied", "replied", "rejected", "dead"}
-_HARD_BLOCKERS = ["hybrid", "onsite", "on-site", "in-office",
-                  "must be based in", "visa sponsorship: no"]
+_WORK_MODES = {"remote", "hybrid", "onsite"}
+_HYBRID_FLAGS = ["hybrid"]
+_ONSITE_FLAGS = ["onsite", "on-site", "in-office"]
 # Georgia the country, not the US state (SQL-side veto for region mode)
 _US_GEORGIA_SQL = r"georgia\s*,\s*(united states|usa?)|,\s*ga\b|\bga\s*,\s*usa?|\batlanta\b"
 
@@ -98,15 +99,42 @@ class Api:
         if t["date_window"] in _WINDOWS:
             clauses.append(f"j.posted_at > now() - interval '{_WINDOWS[t['date_window']]}'")
 
-        mode, value = t["location_mode"], t.get("location_value") or ""
-        if mode == "remote":
-            clauses.append("j.remote_flag and not (j.geo_flags && %(blockers)s)")
-            params["blockers"] = _HARD_BLOCKERS
-        elif mode == "text" and value:
-            # comma-separated custom terms, any match — the non-hardcoded
-            # counterpart to the region presets
+        # work mode is orthogonal to geography: OR of the selected toggles,
+        # no toggles = no filter
+        modes = [m for m in (t.get("work_modes") or []) if m in _WORK_MODES]
+        mode_ors = []
+        if "remote" in modes:
+            # a "remote" job that flags hybrid/onsite isn't remote
+            mode_ors.append("(j.remote_flag and not (j.geo_flags && %(wm_not_remote)s))")
+            params["wm_not_remote"] = _HYBRID_FLAGS + _ONSITE_FLAGS
+        if "hybrid" in modes:
+            mode_ors.append("j.geo_flags && %(wm_hybrid)s")
+            params["wm_hybrid"] = _HYBRID_FLAGS
+        if "onsite" in modes:
+            mode_ors.append("j.geo_flags && %(wm_onsite)s")
+            params["wm_onsite"] = _ONSITE_FLAGS
+        if mode_ors:
+            clauses.append("(" + " or ".join(mode_ors) + ")")
+
+        mode, value = t["location_mode"], (t.get("location_value") or "").strip()
+        if mode == "region" and value in REGION_GROUPS:
+            clauses.append("j.location_raw ilike any(%(regterms)s)")
+            params["regterms"] = [f"%{term}%" for term in REGION_GROUPS[value]]
+            if value == "caucasus":
+                clauses.append("j.location_raw !~* %(gaveto)s")
+                params["gaveto"] = _US_GEORGIA_SQL
+        elif mode == "country" and value:
+            # word-boundary match so "India" never matches "Indiana"
+            clauses.append("j.location_raw ~* %(country_rx)s")
+            params["country_rx"] = r"\m" + re.escape(value) + r"\M"
+            if value.lower() == "georgia":
+                clauses.append("j.location_raw !~* %(gaveto)s")
+                params["gaveto"] = _US_GEORGIA_SQL
+        elif mode == "place" and value:
+            # free entry: comma-separated, any match, checked against
+            # location, title and description
             ors = []
-            for i, term in enumerate(t.strip() for t in value.split(",")):
+            for i, term in enumerate(s.strip() for s in value.split(",")):
                 if not term:
                     continue
                 params[f"locv{i}"] = f"%{term}%"
@@ -114,12 +142,6 @@ class Api:
                            f" or j.description ilike %(locv{i})s)")
             if ors:
                 clauses.append("(" + " or ".join(ors) + ")")
-        elif mode == "region" and value in REGION_GROUPS:
-            clauses.append("j.location_raw ilike any(%(regterms)s)")
-            params["regterms"] = [f"%{term}%" for term in REGION_GROUPS[value]]
-            if value in ("georgia", "caucasus"):
-                clauses.append("j.location_raw !~* %(gaveto)s")
-                params["gaveto"] = _US_GEORGIA_SQL
         return " and ".join(clauses), params
 
     # NB: no parameter may be named `window` — pywebview mirrors Python param
@@ -165,6 +187,7 @@ class Api:
             "exclude_terms": [t for t in fields.get("exclude_terms", []) if t.strip()],
             "exclude_companies": [t for t in fields.get("exclude_companies", []) if t.strip()],
             "date_window": fields.get("date_window") or "14d",
+            "work_modes": [m for m in fields.get("work_modes", []) if m in _WORK_MODES],
             "location_mode": fields.get("location_mode") or "any",
             "location_value": (fields.get("location_value") or "").strip() or None,
         }
@@ -175,16 +198,17 @@ class Api:
                 cur.execute(
                     """update trackers set name=%(name)s, include_terms=%(include_terms)s,
                        exclude_terms=%(exclude_terms)s, exclude_companies=%(exclude_companies)s,
-                       date_window=%(date_window)s, location_mode=%(location_mode)s,
+                       date_window=%(date_window)s, work_modes=%(work_modes)s,
+                       location_mode=%(location_mode)s,
                        location_value=%(location_value)s where id=%(id)s returning id""",
                     {**cols, "id": fields["id"]})
             else:
                 cur.execute(
                     """insert into trackers (name, include_terms, exclude_terms,
-                       exclude_companies, date_window, location_mode, location_value)
+                       exclude_companies, date_window, work_modes, location_mode, location_value)
                        values (%(name)s,%(include_terms)s,%(exclude_terms)s,
-                       %(exclude_companies)s,%(date_window)s,%(location_mode)s,
-                       %(location_value)s) returning id""", cols)
+                       %(exclude_companies)s,%(date_window)s,%(work_modes)s,
+                       %(location_mode)s,%(location_value)s) returning id""", cols)
             return {"id": cur.fetchone()["id"]}
 
     def delete_tracker(self, tracker_id: int) -> dict:

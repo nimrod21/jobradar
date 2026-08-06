@@ -93,22 +93,33 @@
         <button class="chip" data-w="all">All</button>
       </div>
     </label>
+    <label>Work Mode <span class="hint">any of the selected · none = all jobs</span>
+      <div class="chips" id="f-workmodes">
+        <button class="chip" data-m="remote">Remote</button>
+        <button class="chip" data-m="hybrid">Hybrid</button>
+        <button class="chip" data-m="onsite">On-Site</button>
+      </div>
+    </label>
     <label>Location
       <select id="f-locmode">
-        <option value="any">Anywhere — geo badges still shown</option>
-        <option value="remote">Remote — and no hard geo blockers</option>
-        <option value="text">Custom terms — define your own match</option>
-        <option value="region">Region preset…</option>
+        <option value="any">Anywhere</option>
+        <option value="region">Region…</option>
+        <option value="country">Country…</option>
+        <option value="place">City or keyword…</option>
       </select>
     </label>
-    <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label">Location Terms</span>
-      <span class="hint" id="f-locvalue-hint">any match · separate with commas · checked against location, title and description</span>
-      <input id="f-locvalue" type="text" placeholder="e.g. Tbilisi, Georgia, EMEA, CET">
+    <label id="f-locvalue-wrap" hidden><span id="f-locvalue-label"></span>
+      <span class="hint" id="f-locvalue-hint" hidden>any match · separate with commas · checked against location, title and description</span>
+      <input id="f-locvalue" type="text" hidden>
       <select id="f-locregion" hidden>
-        <option value="georgia">Georgia — the country, Atlanta filtered out</option>
-        <option value="caucasus">Caucasus — Georgia · Armenia · Azerbaijan</option>
         <option value="emea">EMEA / Europe</option>
-        <option value="global">Global — worldwide, anywhere</option>
+        <option value="apac">APAC</option>
+        <option value="latam">LATAM</option>
+        <option value="north-america">North America</option>
+        <option value="middle-east">Middle East</option>
+        <option value="africa">Africa</option>
+        <option value="caucasus">Caucasus</option>
+        <option value="global">Global — explicitly worldwide</option>
       </select>
     </label>
     <div class="modal-actions">
