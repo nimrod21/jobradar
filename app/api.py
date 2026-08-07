@@ -10,12 +10,15 @@ from __future__ import annotations
 import re
 import webbrowser
 from datetime import datetime
+from decimal import Decimal
 
 import psycopg
 from psycopg.rows import dict_row
 
 from worker.geo import REGION_GROUPS
 from .sanitize import sanitize_html
+from .score_queue import ScoreQueue
+from .scoring import profile_version
 
 _WINDOWS = {"24h": "24 hours", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
 _STATUSES = {"new", "interesting", "applied", "replied", "rejected", "dead"}
@@ -29,7 +32,11 @@ _JOB_COLS = """j.id, j.title, j.company, j.location_raw, j.remote_flag, j.geo_fl
   j.salary_raw, j.employment_type, j.status, j.apply_url, j.notes,
   j.posted_at, j.posted_at_confident, j.first_seen_at, j.apply_clicked_at, j.applied_at,
   (select count(*) from job_sources s where s.job_id = j.id) as source_count,
-  (select array_agg(s.source) from job_sources s where s.job_id = j.id) as sources"""
+  (select array_agg(s.source) from job_sources s where s.job_id = j.id) as sources,
+  sc.score as fit_score, sc.label as fit_label,
+  sc.verdict->>'one_liner' as fit_one_liner"""
+
+_JOB_FROM = "jobs j left join job_scores sc on sc.job_id = j.id and not sc.failed"
 
 
 def _tsquery(terms: list[str]) -> str:
@@ -38,7 +45,11 @@ def _tsquery(terms: list[str]) -> str:
 
 
 def _iso(v):
-    return v.isoformat() if isinstance(v, datetime) else v
+    if isinstance(v, datetime):
+        return v.isoformat()
+    if isinstance(v, Decimal):
+        return float(v)
+    return v
 
 
 def _row_out(row: dict) -> dict:
@@ -51,6 +62,8 @@ class Api:
         self._config = config
         self._save_config = save_config
         self._conn = None
+        self._scoring_cfg = config.get("scoring") or {}
+        self._squeue = ScoreQueue(database_url, self._scoring_cfg)
 
     # -- connection --------------------------------------------------------
 
@@ -180,7 +193,7 @@ class Api:
         with self._db().cursor() as cur:
             cur.execute(
                 f"""select {_JOB_COLS}, j.viewed_at is null as is_new
-                    from jobs j where {where}
+                    from {_JOB_FROM} where {where}
                     order by {rank} limit 2000""",
                 params,
             )
@@ -245,8 +258,9 @@ class Api:
                 "update jobs set viewed_at = coalesce(viewed_at, now()) where id = %s",
                 (job_id,))
             cur.execute(
-                f"select {_JOB_COLS}, j.description, j.description_html, false as is_new "
-                "from jobs j where j.id = %s", (job_id,))
+                f"select {_JOB_COLS}, sc.verdict as fit_verdict, j.description, "
+                f"j.description_html, false as is_new "
+                f"from {_JOB_FROM} where j.id = %s", (job_id,))
             row = cur.fetchone()
         if not row:
             return None
@@ -288,12 +302,12 @@ class Api:
     def applied_page(self) -> dict:
         with self._db().cursor() as cur:
             cur.execute(
-                f"""select {_JOB_COLS}, false as is_new from jobs j
+                f"""select {_JOB_COLS}, false as is_new from {_JOB_FROM}
                     where j.apply_clicked_at is not null and j.status <> 'applied'
                     order by j.apply_clicked_at desc""")
             to_confirm = [_row_out(r) for r in cur.fetchall()]
             cur.execute(
-                f"""select {_JOB_COLS}, false as is_new from jobs j
+                f"""select {_JOB_COLS}, false as is_new from {_JOB_FROM}
                     where j.status = 'applied'
                     order by j.applied_at desc nulls last""")
             applied = [_row_out(r) for r in cur.fetchall()]
@@ -318,10 +332,154 @@ class Api:
             cur.execute("update jobs set apply_clicked_at = null where id = %s", (job_id,))
         return {"ok": True}
 
+    # -- fit scoring -------------------------------------------------------
+
+    def get_profile(self) -> dict:
+        with self._db().cursor() as cur:
+            cur.execute("select * from profile where id = 1")
+            row = cur.fetchone()
+        out = _row_out(row) if row else {}
+        out["scoring_enabled"] = self._squeue.enabled
+        out["model"] = self._scoring_cfg.get("model", "")
+        return out
+
+    def save_profile(self, fields: dict) -> dict:
+        cols = {
+            "summary": (fields.get("summary") or "").strip() or None,
+            "conf_coding": fields.get("conf_coding") or None,
+            "conf_design": fields.get("conf_design") or None,
+            "conf_english": fields.get("conf_english") or None,
+            "needs_sponsorship": bool(fields.get("needs_sponsorship")),
+            "min_salary": fields.get("min_salary") or None,
+            "salary_currency": (fields.get("salary_currency") or "USD").upper()[:6],
+            "tz_range": (fields.get("tz_range") or "").strip() or None,
+            "contract_ok": bool(fields.get("contract_ok", True)),
+            "domains_avoid": [s for s in fields.get("domains_avoid", []) if s.strip()],
+            "domains_love": [s for s in fields.get("domains_love", []) if s.strip()],
+            "stack_love": [s for s in fields.get("stack_love", []) if s.strip()],
+            "stack_avoid": [s for s in fields.get("stack_avoid", []) if s.strip()],
+            "dealbreakers": (fields.get("dealbreakers") or "").strip() or None,
+        }
+        cols["version"] = profile_version(cols)
+        sets = ", ".join(f"{k} = %({k})s" for k in cols)
+        with self._db().cursor() as cur:
+            cur.execute(
+                f"""insert into profile (id, {', '.join(cols)})
+                    values (1, {', '.join(f'%({k})s' for k in cols)})
+                    on conflict (id) do update set {sets}""", cols)
+        return {"ok": True, "version": cols["version"]}
+
+    def _unscored_ids(self, cur, where: str, params: dict, cap: int) -> list[int]:
+        cur.execute(
+            f"""select j.id from {_JOB_FROM}
+                left join profile p on p.id = 1
+                where {where}
+                  and p.summary is not null
+                  and (sc.job_id is null or sc.profile_version <> p.version)
+                  and not exists (select 1 from job_scores f
+                                  where f.job_id = j.id and f.failed
+                                    and f.profile_version = p.version)
+                order by j.first_seen_at desc limit %(cap)s""",
+            {**params, "cap": cap})
+        return [r["id"] for r in cur.fetchall()]
+
+    def score_new(self, tracker_id: int) -> dict:
+        """Auto-scoring hook: called after a tracker opens."""
+        if not self._squeue.enabled or not self._scoring_cfg.get("auto", True):
+            return {"queued": 0}
+        with self._db().cursor() as cur:
+            cur.execute("select * from trackers where id = %s", (tracker_id,))
+            t = cur.fetchone()
+            if not t:
+                return {"queued": 0}
+            where, params = self._tracker_where(dict(t))
+            ids = self._unscored_ids(cur, where, params,
+                                     int(self._scoring_cfg.get("cap_per_open", 20)))
+        return {"queued": self._squeue.enqueue(ids)}
+
+    def score_all_unscored(self) -> dict:
+        """Dashboard catch-up button: everything unscored across enabled trackers."""
+        if not self._squeue.enabled:
+            return {"queued": 0}
+        all_ids: list[int] = []
+        with self._db().cursor() as cur:
+            cur.execute("select * from trackers where enabled order by id")
+            for t in cur.fetchall():
+                where, params = self._tracker_where(dict(t))
+                all_ids.extend(self._unscored_ids(cur, where, params, 100))
+        return {"queued": self._squeue.enqueue(list(dict.fromkeys(all_ids))[:150])}
+
+    def score_poll(self) -> dict:
+        return self._squeue.drain()
+
+    # -- dashboard stats ---------------------------------------------------
+
+    def dashboard_stats(self) -> dict:
+        with self._db().cursor() as cur:
+            cur.execute("""select count(*) total,
+                                  count(*) filter (where first_seen_at > now() - interval '7 days') new_week,
+                                  count(*) filter (where applied_at is not null) applied,
+                                  count(*) filter (where status = 'replied') replied,
+                                  count(*) filter (where apply_clicked_at is not null) clicked,
+                                  count(*) filter (where status = 'rejected') rejected
+                           from jobs""")
+            totals = _row_out(cur.fetchone())
+
+            cur.execute("""select s.source, count(distinct j.id) apps,
+                                  count(distinct j.id) filter (where j.status = 'replied') replies
+                           from jobs j join job_sources s on s.job_id = j.id
+                           where j.applied_at is not null
+                           group by s.source having count(distinct j.id) >= 3
+                           order by 3::float / count(distinct j.id) desc, 2 desc""")
+            by_source = [_row_out(r) for r in cur.fetchall()]
+
+            cur.execute("""select percentile_cont(0.5) within group
+                             (order by extract(epoch from (apply_clicked_at - posted_at)) / 3600)
+                           from jobs
+                           where apply_clicked_at is not null and posted_at is not null
+                             and posted_at_confident""")
+            row = cur.fetchone()
+            freshness_hours = list(row.values())[0]
+
+            cur.execute("""select to_char(date_trunc('week', apply_clicked_at), 'MM-DD') wk,
+                                  count(*) n
+                           from jobs
+                           where apply_clicked_at > now() - interval '8 weeks'
+                           group by 1 order by 1""")
+            per_week = [_row_out(r) for r in cur.fetchall()]
+
+            cur.execute("select * from trackers where enabled order by created_at, id")
+            trackers = cur.fetchall()
+            pulse = []
+            for t in trackers:
+                where, params = self._tracker_where(dict(t))
+                cur.execute(
+                    f"""select date(j.first_seen_at) d, count(*) n from {_JOB_FROM}
+                        where {where} and j.first_seen_at > now() - interval '14 days'
+                        group by 1 order by 1""", params)
+                days = {str(r["d"]): r["n"] for r in cur.fetchall()}
+                pulse.append({"name": t["name"], "days": days,
+                              "total": sum(days.values())})
+
+            cur.execute("""select avg(sc.score) filter (where j.applied_at is not null) avg_applied,
+                                  avg(sc.score) filter (where j.applied_at is null) avg_skipped,
+                                  count(sc.score) scored
+                           from job_scores sc join jobs j on j.id = sc.job_id
+                           where not sc.failed""")
+            fit = _row_out(cur.fetchone())
+            for k in ("avg_applied", "avg_skipped"):
+                if fit.get(k) is not None:
+                    fit[k] = round(float(fit[k]), 1)
+
+        return {"totals": totals, "by_source": by_source,
+                "freshness_hours": round(freshness_hours, 1) if freshness_hours else None,
+                "per_week": per_week, "pulse": pulse, "fit": fit}
+
     # -- config ------------------------------------------------------------
 
     def get_config(self) -> dict:
-        return {"theme": self._config.get("theme", "dark")}
+        return {"theme": self._config.get("theme", "dark"),
+                "scoring_enabled": self._squeue.enabled}
 
     def set_theme(self, theme: str) -> dict:
         if theme in ("dark", "light"):

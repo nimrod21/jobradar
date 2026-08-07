@@ -62,6 +62,13 @@ def load_config() -> dict:
 def save_config(cfg: dict) -> None:
     lines = [f'database_url = "{cfg.get("database_url", "")}"',
              f'theme = "{cfg.get("theme", "dark")}"']
+    sc = cfg.get("scoring") or {}
+    if sc:
+        lines += ["", "[scoring]",
+                  f'openrouter_api_key = "{sc.get("openrouter_api_key", "")}"',
+                  f'model = "{sc.get("model", "")}"',
+                  f'auto = {"true" if sc.get("auto", True) else "false"}',
+                  f'cap_per_open = {int(sc.get("cap_per_open", 20))}']
     _config_path().write_text("# JobRadar app config\n" + "\n".join(lines) + "\n",
                               encoding="utf-8")
 
