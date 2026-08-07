@@ -57,8 +57,11 @@ def match_email(from_addr: str, display_name: str, subject: str,
     # direct mail: company token in the sender's own domain or display name
     if any(t in domain for t in tokens):
         return True
+    if any(t in name_l for t in tokens):
+        return True
+    # subject alone needs the full company name, not just a token
     company_l = (company or "").lower().strip()
-    return bool(company_l) and (company_l in name_l or company_l in subj_l)
+    return bool(company_l) and company_l in subj_l
 
 
 def decode_header(value: str | None) -> str:
