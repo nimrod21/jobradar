@@ -65,10 +65,16 @@ def save_config(cfg: dict) -> None:
     sc = cfg.get("scoring") or {}
     if sc:
         lines += ["", "[scoring]",
+                  f'api_base = "{sc.get("api_base", "https://openrouter.ai/api/v1")}"',
                   f'openrouter_api_key = "{sc.get("openrouter_api_key", "")}"',
                   f'model = "{sc.get("model", "")}"',
                   f'auto = {"true" if sc.get("auto", True) else "false"}',
                   f'cap_per_open = {int(sc.get("cap_per_open", 20))}']
+    for acc in cfg.get("email", []):
+        lines += ["", "[[email]]",
+                  f'address = "{acc.get("address", "")}"',
+                  f'app_password = "{acc.get("app_password", "")}"',
+                  f'imap_host = "{acc.get("imap_host", "")}"']
     _config_path().write_text("# JobRadar app config\n" + "\n".join(lines) + "\n",
                               encoding="utf-8")
 

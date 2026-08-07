@@ -16,6 +16,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from worker.geo import REGION_GROUPS
+from . import emails as emails_mod
 from .sanitize import sanitize_html
 from .score_queue import ScoreQueue
 from .scoring import profile_version
@@ -344,21 +345,40 @@ class Api:
         return out
 
     def save_profile(self, fields: dict) -> dict:
+        def _txt(k):
+            return (fields.get(k) or "").strip() or None
+
+        def _arr(k):
+            return [s for s in fields.get(k, []) if s.strip()]
+
         cols = {
-            "summary": (fields.get("summary") or "").strip() or None,
+            "summary": _txt("summary"),
+            "years_exp": fields.get("years_exp") or None,
+            "current_title": _txt("current_title"),
+            "target_roles": _arr("target_roles"),
+            "target_level": fields.get("target_level")
+                            if fields.get("target_level") in
+                            ("any", "junior", "mid", "senior", "staff", "lead") else "any",
             "conf_coding": fields.get("conf_coding") or None,
             "conf_design": fields.get("conf_design") or None,
             "conf_english": fields.get("conf_english") or None,
+            "conf_behavioral": fields.get("conf_behavioral") or None,
             "needs_sponsorship": bool(fields.get("needs_sponsorship")),
+            "citizenship": _txt("citizenship"),
             "min_salary": fields.get("min_salary") or None,
+            "salary_target": fields.get("salary_target") or None,
+            "salary_period": "year" if fields.get("salary_period") == "year" else "month",
             "salary_currency": (fields.get("salary_currency") or "USD").upper()[:6],
-            "tz_range": (fields.get("tz_range") or "").strip() or None,
+            "tz_range": _txt("tz_range"),
+            "notice": _txt("notice"),
             "contract_ok": bool(fields.get("contract_ok", True)),
-            "domains_avoid": [s for s in fields.get("domains_avoid", []) if s.strip()],
-            "domains_love": [s for s in fields.get("domains_love", []) if s.strip()],
-            "stack_love": [s for s in fields.get("stack_love", []) if s.strip()],
-            "stack_avoid": [s for s in fields.get("stack_avoid", []) if s.strip()],
-            "dealbreakers": (fields.get("dealbreakers") or "").strip() or None,
+            "education": _txt("education"),
+            "languages": _arr("languages"),
+            "domains_avoid": _arr("domains_avoid"),
+            "domains_love": _arr("domains_love"),
+            "stack_love": _arr("stack_love"),
+            "stack_avoid": _arr("stack_avoid"),
+            "dealbreakers": _txt("dealbreakers"),
         }
         cols["version"] = profile_version(cols)
         sets = ", ".join(f"{k} = %({k})s" for k in cols)
@@ -411,6 +431,116 @@ class Api:
 
     def score_poll(self) -> dict:
         return self._squeue.drain()
+
+    # -- email accounts + reply detection ------------------------------------
+
+    def email_accounts(self) -> list[dict]:
+        return [{"address": a.get("address"), "imap_host": a.get("imap_host")}
+                for a in self._config.get("email", [])]
+
+    def add_email_account(self, address: str, app_password: str, host: str) -> dict:
+        address = (address or "").strip()
+        app_password = (app_password or "").strip()
+        host = emails_mod.IMAP_PRESETS.get(host, host).strip()
+        if not address or not app_password or not host:
+            return {"ok": False, "error": "Address, app password and host are all required."}
+        try:  # validate before saving
+            conn = __import__("imaplib").IMAP4_SSL(host, timeout=20)
+            conn.login(address, app_password)
+            conn.logout()
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": f"Login failed: {str(e)[:150]}"}
+        accounts = [a for a in self._config.get("email", [])
+                    if a.get("address") != address]
+        accounts.append({"address": address, "app_password": app_password,
+                         "imap_host": host})
+        self._config["email"] = accounts
+        self._save_config(self._config)
+        return {"ok": True}
+
+    def remove_email_account(self, address: str) -> dict:
+        self._config["email"] = [a for a in self._config.get("email", [])
+                                 if a.get("address") != address]
+        self._save_config(self._config)
+        return {"ok": True}
+
+    def check_email_now(self) -> dict:
+        accounts = self._config.get("email", [])
+        if not accounts:
+            return {"ok": False, "error": "No email accounts attached."}
+        with self._db().cursor() as cur:
+            cur.execute("""select id, title, company, apply_clicked_at from jobs
+                           where apply_clicked_at is not null""")
+            applied = [dict(r) for r in cur.fetchall()]
+        if not applied:
+            return {"ok": True, "found": 0, "note": "Nothing applied to yet."}
+
+        since = emails_mod.default_since(applied)
+        found, errors = 0, []
+        for acc in accounts:
+            try:
+                matches = emails_mod.check_account(acc, applied, since)
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"{acc.get('address')}: {str(e)[:120]}")
+                continue
+            with self._db().cursor() as cur:
+                for m in matches:
+                    cur.execute(
+                        """insert into job_emails (job_id, account, msg_id, from_addr,
+                               subject, snippet, body, attachments, received_at)
+                           values (%(job_id)s, %(account)s, %(msg_id)s, %(from_addr)s,
+                               %(subject)s, %(snippet)s, %(body)s, %(attachments)s,
+                               %(received_at)s)
+                           on conflict (job_id, msg_id) do nothing""",
+                        {**m, "account": acc["address"]})
+                    found += cur.rowcount
+                    cur.execute(
+                        """update jobs set status = 'replied'
+                           where id = %s and status in ('new','interesting','applied')""",
+                        (m["job_id"],))
+        return {"ok": True, "found": found, "errors": errors}
+
+    def replies_feed(self) -> list[dict]:
+        with self._db().cursor() as cur:
+            cur.execute(
+                """select e.id, e.job_id, e.from_addr, e.subject, e.snippet, e.body,
+                          e.attachments, e.received_at, e.account,
+                          j.title, j.company
+                   from job_emails e join jobs j on j.id = e.job_id
+                   order by e.received_at desc nulls last limit 100""")
+            return [_row_out(r) for r in cur.fetchall()]
+
+    def job_emails(self, job_id: int) -> list[dict]:
+        with self._db().cursor() as cur:
+            cur.execute(
+                """select from_addr, subject, snippet, body, attachments, received_at
+                   from job_emails where job_id = %s
+                   order by received_at desc nulls last""", (job_id,))
+            return [_row_out(r) for r in cur.fetchall()]
+
+    def test_ai(self) -> dict:
+        return self._squeue.test_connection()
+
+    def get_ai_settings(self) -> dict:
+        sc = self._scoring_cfg
+        return {"api_base": sc.get("api_base", "https://openrouter.ai/api/v1"),
+                "has_key": bool(sc.get("openrouter_api_key")),
+                "model": sc.get("model", ""),
+                "auto": bool(sc.get("auto", True))}
+
+    def save_ai_settings(self, fields: dict) -> dict:
+        sc = dict(self._scoring_cfg)
+        sc["api_base"] = (fields.get("api_base") or "https://openrouter.ai/api/v1").strip()
+        if fields.get("api_key"):  # blank = keep existing
+            sc["openrouter_api_key"] = fields["api_key"].strip()
+        sc["model"] = (fields.get("model") or "").strip()
+        sc["auto"] = bool(fields.get("auto", True))
+        sc.setdefault("cap_per_open", 20)
+        self._config["scoring"] = sc
+        self._scoring_cfg = sc
+        self._save_config(self._config)
+        self._squeue = ScoreQueue(self._url, sc)   # apply immediately
+        return {"ok": True, **self.get_ai_settings()}
 
     # -- dashboard stats ---------------------------------------------------
 

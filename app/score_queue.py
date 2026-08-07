@@ -17,13 +17,16 @@ from psycopg.types.json import Jsonb
 
 from .scoring import build_messages, parse_verdict
 
-_OR_URL = "https://openrouter.ai/api/v1/chat/completions"
+_DEFAULT_BASE = "https://openrouter.ai/api/v1"
 
 
 class ScoreQueue:
     def __init__(self, database_url: str, cfg: dict):
         self._url = database_url
-        self._key = cfg.get("openrouter_api_key") or ""
+        # Any OpenAI-compatible endpoint: OpenRouter (default), OpenAI,
+        # Anthropic, Groq, or local Ollama/LM Studio (no key needed there).
+        self._base = (cfg.get("api_base") or _DEFAULT_BASE).rstrip("/")
+        self._key = cfg.get("openrouter_api_key") or cfg.get("api_key") or ""
         self._model = cfg.get("model") or "nvidia/nemotron-3-ultra-550b-a55b:free"
         self._lock = threading.Lock()
         self._queue: list[int] = []
@@ -33,7 +36,8 @@ class ScoreQueue:
 
     @property
     def enabled(self) -> bool:
-        return bool(self._key)
+        # a keyless local endpoint (Ollama) is a valid setup
+        return bool(self._key) or "localhost" in self._base or "127.0.0.1" in self._base
 
     def enqueue(self, job_ids: list[int]) -> int:
         if not self.enabled:
@@ -131,12 +135,14 @@ class ScoreQueue:
                 "one_liner": verdict["one_liner"]}
 
     def _call(self, messages: list[dict]) -> str | None:
+        headers = {"HTTP-Referer": "https://github.com/nimrod21/jobradar",
+                   "X-Title": "JobRadar"}
+        if self._key:
+            headers["Authorization"] = f"Bearer {self._key}"
         try:
             r = httpx.post(
-                _OR_URL,
-                headers={"Authorization": f"Bearer {self._key}",
-                         "HTTP-Referer": "https://github.com/nimrod21/jobradar",
-                         "X-Title": "JobRadar"},
+                f"{self._base}/chat/completions",
+                headers=headers,
                 json={"model": self._model, "messages": messages, "temperature": 0.2},
                 timeout=90,
             )
@@ -146,3 +152,12 @@ class ScoreQueue:
             return data["choices"][0]["message"]["content"]
         except (httpx.HTTPError, KeyError, IndexError, ValueError):
             return None
+
+    def test_connection(self) -> dict:
+        """One tiny call for the dashboard's Test button."""
+        if not self.enabled:
+            return {"ok": False, "error": "No key configured (and not a local endpoint)."}
+        text = self._call([{"role": "user", "content": "Reply with the single word: ok"}])
+        if text is None:
+            return {"ok": False, "error": f"No response from {self._base} with model {self._model}."}
+        return {"ok": True, "model": self._model, "base": self._base}

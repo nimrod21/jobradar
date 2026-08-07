@@ -15,9 +15,12 @@ LABELS = ("safe", "stretch", "reach")
 DEALBREAKER_MAX_SCORE = 20
 
 _PROFILE_FIELDS = ("summary", "conf_coding", "conf_design", "conf_english",
-                   "needs_sponsorship", "min_salary", "salary_currency",
+                   "conf_behavioral", "needs_sponsorship", "min_salary",
+                   "salary_target", "salary_period", "salary_currency",
                    "tz_range", "contract_ok", "domains_avoid", "domains_love",
-                   "stack_love", "stack_avoid", "dealbreakers")
+                   "stack_love", "stack_avoid", "dealbreakers", "years_exp",
+                   "current_title", "target_roles", "target_level", "notice",
+                   "education", "languages", "citizenship")
 
 
 def profile_version(profile: dict) -> str:
@@ -57,13 +60,29 @@ def _fmt_list(items) -> str:
 def build_messages(profile: dict, job: dict) -> list[dict]:
     p = profile
     desc = (job.get("description") or "")[:MAX_DESC_CHARS]
+
+    def money(v):
+        return f"{float(v):g}" if v is not None else None
+
+    salary = "-"
+    if p.get("min_salary") or p.get("salary_target"):
+        per = p.get("salary_period") or "month"
+        cur = p.get("salary_currency") or ""
+        lo, tgt = money(p.get("min_salary")), money(p.get("salary_target"))
+        salary = (f"floor {lo}" if lo else "") + (f", target {tgt}" if tgt else "")
+        salary = f"{salary.strip(', ')} {cur}/{per}"
+
     prof_block = f"""CANDIDATE
 Summary: {p.get('summary') or '-'}
-Interview confidence (1-10): live-coding/algorithms {p.get('conf_coding') or '?'}, system design {p.get('conf_design') or '?'}, spoken English {p.get('conf_english') or '?'}
-Needs visa sponsorship: {'yes' if p.get('needs_sponsorship') else 'no'}
-Minimum salary: {f"{p.get('min_salary'):g} {p.get('salary_currency') or ''}".strip() if p.get('min_salary') else '-'}
-Timezone: {p.get('tz_range') or '-'}
+Experience: {p.get('years_exp') or '?'} years, currently {p.get('current_title') or '-'}
+Target roles: {_fmt_list(p.get('target_roles'))} (level: {p.get('target_level') or 'any'})
+Interview confidence (1-10): live-coding/algorithms {p.get('conf_coding') or '?'}, system design {p.get('conf_design') or '?'}, spoken English {p.get('conf_english') or '?'}, behavioral/self-presentation {p.get('conf_behavioral') or '?'}
+Citizenship/work authorization: {p.get('citizenship') or '-'}; needs visa sponsorship: {'yes' if p.get('needs_sponsorship') else 'no'}
+Salary expectation: {salary}
+Timezone: {p.get('tz_range') or '-'}; availability: {p.get('notice') or '-'}
 Contract/freelance acceptable: {'yes' if p.get('contract_ok', True) else 'no'}
+Education: {p.get('education') or '-'}
+Languages: {_fmt_list(p.get('languages'))}
 Domains to avoid (dealbreaker): {_fmt_list(p.get('domains_avoid'))}
 Domains preferred: {_fmt_list(p.get('domains_love'))}
 Stack preferred: {_fmt_list(p.get('stack_love'))}
