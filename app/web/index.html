@@ -21,19 +21,24 @@
       <button id="theme-toggle" class="btn-quiet btn-icon" title="Toggle theme">◐</button>
     </div>
 
+    <div class="side-pages">
+      <button id="nav-dashboard" class="tracker-item">
+        <span class="t-name">▦ Dashboard</span>
+      </button>
+      <button id="nav-profile" class="tracker-item">
+        <span class="t-name">◎ Profile</span>
+      </button>
+      <button id="nav-applied" class="tracker-item applied-nav">
+        <span class="t-name">✓ Applied</span>
+        <span class="t-count" id="applied-count" hidden>0</span>
+      </button>
+    </div>
+    <div class="side-divider"></div>
+
     <div class="side-label">Trackers</div>
     <nav id="tracker-list"></nav>
     <button id="new-tracker" class="side-new">+ New Tracker</button>
-
     <div class="side-spacer"></div>
-    <div class="side-divider"></div>
-    <button id="nav-dashboard" class="tracker-item">
-      <span class="t-name">▦ Dashboard</span>
-    </button>
-    <button id="nav-applied" class="tracker-item applied-nav">
-      <span class="t-name">✓ Applied</span>
-      <span class="t-count" id="applied-count" hidden>0</span>
-    </button>
   </aside>
 
   <main id="main">
@@ -71,74 +76,208 @@
       </div>
     </div>
 
+    <div id="profile-view" hidden>
+      <div class="dash-col" id="dash-profile">
+        <div class="dash-head">
+          <h2>Profile</h2>
+          <span id="p-key-status" class="muted"></span>
+        </div>
+
+        <label>Bio <span class="hint">who you are: stack, years, notable work — the base the scoring reasons over</span>
+          <textarea id="p-summary" rows="5" placeholder="Full-stack + AI engineer, 6 years. Python, TypeScript…"></textarea>
+        </label>
+
+        <div class="dash-head"><h2>Experience</h2></div>
+        <div class="form-row">
+          <label>Years of Experience
+            <input type="text" id="p-years" placeholder="6">
+          </label>
+          <label>Current Title
+            <input type="text" id="p-title" placeholder="Full-stack Engineer">
+          </label>
+          <label>Target Level
+            <select id="p-level">
+              <option value="any">Any</option>
+              <option value="junior">Junior</option>
+              <option value="mid">Mid</option>
+              <option value="senior">Senior</option>
+              <option value="staff">Staff</option>
+              <option value="lead">Lead</option>
+            </select>
+          </label>
+        </div>
+        <label>Target Roles <span class="hint">what you want, not just what you are · commas</span>
+          <div class="chip-input" id="p-target-roles"></div>
+        </label>
+
+        <div class="dash-head"><h2>Interview Confidence <span class="hint">1–10, honest — this calibrates Safe/Stretch/Reach</span></h2></div>
+        <div class="slider-grid">
+          <label>Live Coding <output id="p-coding-out">5</output>
+            <input type="range" id="p-coding" min="1" max="10" value="5">
+          </label>
+          <label>System Design <output id="p-design-out">5</output>
+            <input type="range" id="p-design" min="1" max="10" value="5">
+          </label>
+        </div>
+        <div class="slider-grid">
+          <label>Spoken English <output id="p-english-out">5</output>
+            <input type="range" id="p-english" min="1" max="10" value="5">
+          </label>
+          <label>Behavioral / Self-Presentation <output id="p-behavioral-out">5</output>
+            <input type="range" id="p-behavioral" min="1" max="10" value="5">
+          </label>
+        </div>
+
+        <div class="dash-head"><h2>Compensation</h2></div>
+        <div class="form-row">
+          <label>Salary Floor
+            <input type="text" id="p-minsalary" placeholder="3000">
+          </label>
+          <label>Salary Target
+            <input type="text" id="p-salarytarget" placeholder="5000">
+          </label>
+          <label>Currency
+            <input type="text" id="p-currency" placeholder="USD">
+          </label>
+          <label>Per
+            <select id="p-period">
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="dash-head"><h2>Logistics</h2></div>
+        <div class="form-row">
+          <label>Timezone Window
+            <input type="text" id="p-tz" placeholder="UTC+0..UTC+6">
+          </label>
+          <label>Availability / Notice
+            <input type="text" id="p-notice" placeholder="Immediately / 2 weeks">
+          </label>
+        </div>
+        <div class="check-row">
+          <label class="check"><input type="checkbox" id="p-contract" checked> Contract / freelance is fine</label>
+        </div>
+
+        <div class="dash-head"><h2>Background</h2></div>
+        <div class="form-row">
+          <label>Education <span class="hint">one line, optional</span>
+            <input type="text" id="p-education" placeholder="BSc Computer Science, TSU">
+          </label>
+          <label>Citizenship / Work Authorization
+            <input type="text" id="p-citizenship" placeholder="Georgian citizen">
+          </label>
+        </div>
+        <label>Languages <span class="hint">with level · commas</span>
+          <div class="chip-input" id="p-languages"></div>
+        </label>
+        <div class="check-row">
+          <label class="check"><input type="checkbox" id="p-sponsorship"> I need visa sponsorship</label>
+        </div>
+
+        <div class="dash-head"><h2>Taste &amp; Dealbreakers</h2></div>
+        <div class="form-row">
+          <label>Domains to Avoid <span class="hint">dealbreakers</span>
+            <div class="chip-input" id="p-domains-avoid"></div>
+          </label>
+          <label>Domains You'd Love
+            <div class="chip-input" id="p-domains-love"></div>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Stack You Prefer
+            <div class="chip-input" id="p-stack-love"></div>
+          </label>
+          <label>Stack to Avoid
+            <div class="chip-input" id="p-stack-avoid"></div>
+          </label>
+        </div>
+        <label>Other Dealbreakers <span class="hint">free text, passed verbatim</span>
+          <input type="text" id="p-dealbreakers" placeholder="No 100% travel roles; no on-call weeks…">
+        </label>
+
+        <div class="dash-actions">
+          <button id="p-save" class="btn-primary">Save Profile</button>
+          <span id="p-status" class="muted"></span>
+        </div>
+      </div>
+    </div>
+
     <div id="dashboard-view" hidden>
       <div class="dash-col">
+        <div class="tabs">
+          <button class="tab active" data-tab="stats">Stats &amp; Settings</button>
+          <button class="tab" data-tab="email">Email</button>
+        </div>
 
-        <section class="dash-section" id="dash-profile">
-          <div class="dash-head">
-            <h2>Profile &amp; Fit Scoring</h2>
-            <span id="p-key-status" class="muted"></span>
-          </div>
-          <label>Who You Are <span class="hint">stack, years, notable work — the base the scoring reasons over</span>
-            <textarea id="p-summary" rows="4" placeholder="Full-stack + AI engineer, 6 years. Python, TypeScript…"></textarea>
-          </label>
-          <div class="slider-grid">
-            <label>Live-Coding Interview <output id="p-coding-out">5</output>
-              <input type="range" id="p-coding" min="1" max="10" value="5">
-            </label>
-            <label>System-Design Interview <output id="p-design-out">5</output>
-              <input type="range" id="p-design" min="1" max="10" value="5">
-            </label>
-            <label>Spoken-English Interview <output id="p-english-out">5</output>
-              <input type="range" id="p-english" min="1" max="10" value="5">
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Minimum Salary
-              <input type="text" id="p-minsalary" placeholder="60000">
-            </label>
-            <label>Currency
-              <input type="text" id="p-currency" placeholder="USD">
-            </label>
-            <label>Timezone Window
-              <input type="text" id="p-tz" placeholder="UTC+0..UTC+6">
-            </label>
-          </div>
-          <div class="check-row">
-            <label class="check"><input type="checkbox" id="p-sponsorship"> I need visa sponsorship</label>
-            <label class="check"><input type="checkbox" id="p-contract" checked> Contract / freelance is fine</label>
-          </div>
-          <div class="form-row">
-            <label>Domains to Avoid <span class="hint">dealbreakers</span>
-              <div class="chip-input" id="p-domains-avoid"></div>
-            </label>
-            <label>Domains You'd Love
-              <div class="chip-input" id="p-domains-love"></div>
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Stack You Prefer
-              <div class="chip-input" id="p-stack-love"></div>
-            </label>
-            <label>Stack to Avoid
-              <div class="chip-input" id="p-stack-avoid"></div>
-            </label>
-          </div>
-          <label>Other Dealbreakers <span class="hint">free text, passed verbatim</span>
-            <input type="text" id="p-dealbreakers" placeholder="No 100% travel roles; no on-call weeks…">
-          </label>
-          <div class="dash-actions">
-            <button id="p-save" class="btn-primary">Save Profile</button>
-            <button id="p-score-all" class="btn-quiet">Score All Unscored</button>
-            <span id="p-status" class="muted"></span>
-          </div>
-        </section>
+        <div id="tab-stats">
+          <section class="dash-section">
+            <div class="dash-head"><h2>Stats</h2></div>
+            <div id="dash-cards" class="cards"></div>
+            <div id="dash-stats"></div>
+          </section>
 
-        <section class="dash-section">
-          <div class="dash-head"><h2>Stats</h2></div>
-          <div id="dash-cards" class="cards"></div>
-          <div id="dash-stats"></div>
-        </section>
+          <section class="dash-section" id="ai-settings">
+            <div class="dash-head"><h2>AI Provider</h2><span id="ai-status" class="muted"></span></div>
+            <label>API Base URL <span class="hint">any OpenAI-compatible endpoint — OpenRouter, OpenAI, Anthropic, Groq, or local Ollama (http://localhost:11434/v1)</span>
+              <input type="text" id="ai-base" placeholder="https://openrouter.ai/api/v1">
+            </label>
+            <div class="form-row">
+              <label>API Key <span class="hint">leave blank to keep current · local endpoints need none</span>
+                <input type="password" id="ai-key" placeholder="••••••••">
+              </label>
+              <label>Model
+                <input type="text" id="ai-model" placeholder="nvidia/nemotron-3-ultra-550b-a55b:free">
+              </label>
+            </div>
+            <div class="check-row">
+              <label class="check"><input type="checkbox" id="ai-auto" checked> Score new matches automatically</label>
+            </div>
+            <div class="dash-actions">
+              <button id="ai-save" class="btn-primary">Save</button>
+              <button id="ai-test" class="btn-quiet">Test Connection</button>
+              <button id="p-score-all" class="btn-quiet">Score All Unscored</button>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-email" hidden>
+          <section class="dash-section">
+            <div class="dash-head"><h2>Email Accounts</h2><span id="em-status" class="muted"></span></div>
+            <div id="em-accounts"></div>
+            <div class="form-row">
+              <label>Address
+                <input type="text" id="em-address" placeholder="you@gmail.com">
+              </label>
+              <label>App Password <span class="hint">not your normal password</span>
+                <input type="password" id="em-password" placeholder="16-character app password">
+              </label>
+              <label>Provider
+                <select id="em-host">
+                  <option value="gmail">Gmail</option>
+                  <option value="yahoo">Yahoo</option>
+                  <option value="outlook">Outlook</option>
+                  <option value="custom">Custom host…</option>
+                </select>
+              </label>
+            </div>
+            <label id="em-customhost-wrap" hidden>IMAP Host
+              <input type="text" id="em-customhost" placeholder="imap.example.com">
+            </label>
+            <div class="dash-actions">
+              <button id="em-add" class="btn-primary">Attach Account</button>
+              <button id="em-check" class="btn-quiet">Check Now</button>
+            </div>
+            <p class="stat-note">Gmail/Yahoo: enable 2FA, then create an app password in security
+            settings. Accounts are stored only in your local jobradar.toml — never in the database.</p>
+          </section>
+
+          <section class="dash-section">
+            <div class="dash-head"><h2>Replies</h2></div>
+            <div id="em-feed"></div>
+          </section>
+        </div>
 
       </div>
     </div>

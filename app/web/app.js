@@ -377,6 +377,14 @@ async function renderDetailForSelection() {
     desc.append(el("p", "muted", "No description captured."));
   }
   w.append(desc);
+
+  api().job_emails(full.id).then((ems) => {
+    if (!ems.length || state.jobs[state.selected]?.id !== full.id) return;
+    const sec = el("div", "d-desc");
+    sec.append(el("h3", null, "Replies"));
+    for (const r of ems) sec.append(replyCard(r, false));
+    w.append(sec);
+  });
 }
 
 async function setStatus(jobId, status) {
@@ -456,42 +464,64 @@ function appliedRow(j, pending) {
 
 const profileChips = {};
 
-async function openDashboard() {
-  state.view = "dashboard";
+const _num = (sel) => Number($(sel).value.replace(/[^\d.]/g, "")) || null;
+
+async function openProfile() {
+  state.view = "profile";
   showView();
   const p = await api().get_profile();
   $("#p-key-status").textContent = p.scoring_enabled
     ? "Scoring: " + (p.model || "model set")
-    : "No OpenRouter key in jobradar.toml — scoring is off, everything else works";
+    : "Scoring off — set a key in Dashboard → AI Provider";
   $("#p-summary").value = p.summary || "";
+  $("#p-years").value = p.years_exp ?? "";
+  $("#p-title").value = p.current_title || "";
+  $("#p-level").value = p.target_level || "any";
   for (const [id, key] of [["p-coding", "conf_coding"], ["p-design", "conf_design"],
-                           ["p-english", "conf_english"]]) {
+                           ["p-english", "conf_english"], ["p-behavioral", "conf_behavioral"]]) {
     $("#" + id).value = p[key] || 5;
     $("#" + id + "-out").textContent = p[key] || 5;
   }
   $("#p-minsalary").value = p.min_salary ?? "";
+  $("#p-salarytarget").value = p.salary_target ?? "";
   $("#p-currency").value = p.salary_currency || "USD";
+  $("#p-period").value = p.salary_period || "month";
   $("#p-tz").value = p.tz_range || "";
+  $("#p-notice").value = p.notice || "";
+  $("#p-education").value = p.education || "";
+  $("#p-citizenship").value = p.citizenship || "";
   $("#p-sponsorship").checked = !!p.needs_sponsorship;
   $("#p-contract").checked = p.contract_ok !== false;
+  profileChips.targetRoles.set(p.target_roles);
+  profileChips.languages.set(p.languages);
   profileChips.domAvoid.set(p.domains_avoid);
   profileChips.domLove.set(p.domains_love);
   profileChips.stackLove.set(p.stack_love);
   profileChips.stackAvoid.set(p.stack_avoid);
   $("#p-dealbreakers").value = p.dealbreakers || "";
-  renderStats(await api().dashboard_stats());
 }
 
 async function saveProfile() {
   $("#p-status").textContent = "Saving…";
   await api().save_profile({
     summary: $("#p-summary").value,
+    years_exp: _num("#p-years"),
+    current_title: $("#p-title").value,
+    target_level: $("#p-level").value,
+    target_roles: profileChips.targetRoles.get(),
     conf_coding: Number($("#p-coding").value),
     conf_design: Number($("#p-design").value),
     conf_english: Number($("#p-english").value),
-    min_salary: Number($("#p-minsalary").value.replace(/[^\d.]/g, "")) || null,
+    conf_behavioral: Number($("#p-behavioral").value),
+    min_salary: _num("#p-minsalary"),
+    salary_target: _num("#p-salarytarget"),
     salary_currency: $("#p-currency").value,
+    salary_period: $("#p-period").value,
     tz_range: $("#p-tz").value,
+    notice: $("#p-notice").value,
+    education: $("#p-education").value,
+    citizenship: $("#p-citizenship").value,
+    languages: profileChips.languages.get(),
     needs_sponsorship: $("#p-sponsorship").checked,
     contract_ok: $("#p-contract").checked,
     domains_avoid: profileChips.domAvoid.get(),
@@ -501,6 +531,65 @@ async function saveProfile() {
     dealbreakers: $("#p-dealbreakers").value,
   });
   $("#p-status").textContent = "Saved ✓ — existing scores rescore as trackers open.";
+}
+
+async function openDashboard() {
+  state.view = "dashboard";
+  showView();
+  renderStats(await api().dashboard_stats());
+  const ai = await api().get_ai_settings();
+  $("#ai-base").value = ai.api_base;
+  $("#ai-model").value = ai.model;
+  $("#ai-auto").checked = ai.auto;
+  $("#ai-status").textContent = ai.has_key ? "key set" : "no key";
+  renderEmailAccounts(await api().email_accounts());
+  renderReplies(await api().replies_feed());
+}
+
+function renderEmailAccounts(accounts) {
+  const box = $("#em-accounts");
+  box.innerHTML = "";
+  if (!accounts.length) {
+    box.append(el("div", "stat-note", "No accounts attached yet."));
+    return;
+  }
+  for (const a of accounts) {
+    const row = el("div", "em-account");
+    row.append(el("span", null, a.address));
+    row.append(el("span", "host", a.imap_host));
+    const rm = el("button", "btn-quiet btn-danger rm", "Remove");
+    rm.addEventListener("click", async () => {
+      await api().remove_email_account(a.address);
+      renderEmailAccounts(await api().email_accounts());
+    });
+    row.append(rm);
+    box.append(row);
+  }
+}
+
+function renderReplies(feed) {
+  const box = $("#em-feed");
+  box.innerHTML = "";
+  if (!feed.length) {
+    box.append(el("div", "stat-note",
+      "No matched replies yet — attach an account and press Check Now after you've applied somewhere."));
+    return;
+  }
+  for (const r of feed) box.append(replyCard(r, true));
+}
+
+function replyCard(r, withJob) {
+  const d = el("details", "em-reply");
+  const s = el("summary");
+  s.append(el("span", "from", r.from_addr || "?"));
+  s.append(el("span", "subj", r.subject || "(no subject)"));
+  if (withJob && r.title) s.append(el("span", "subj", "→ " + r.title + (r.company ? " @ " + r.company : "")));
+  s.append(el("span", "when", timeAgo(r.received_at) + " ago"));
+  d.append(s);
+  const body = el("div", "body", r.body || r.snippet || "(empty)");
+  if (r.attachments) body.append(el("div", "stat-note", `${r.attachments} attachment(s) not downloaded`));
+  d.append(body);
+  return d;
 }
 
 function statBlock(title, note) {
@@ -625,11 +714,13 @@ function showView() {
   $("#topbar").style.display = v === "tracker" ? "" : "none";
   $("#applied-view").hidden = v !== "applied";
   $("#dashboard-view").hidden = v !== "dashboard";
+  $("#profile-view").hidden = v !== "profile";
   document.querySelectorAll("#tracker-list .tracker-item").forEach((b) =>
     b.classList.toggle("active",
       v === "tracker" && Number(b.dataset.id) === state.trackerId));
   $("#nav-applied").classList.toggle("active", v === "applied");
   $("#nav-dashboard").classList.toggle("active", v === "dashboard");
+  $("#nav-profile").classList.toggle("active", v === "profile");
 }
 
 /* ---------- tracker modal ---------- */
@@ -874,17 +965,71 @@ window.addEventListener("pywebviewready", () => {
   $("#new-tracker").addEventListener("click", () => openModal(null));
   $("#nav-applied").addEventListener("click", openApplied);
   $("#nav-dashboard").addEventListener("click", openDashboard);
+  $("#nav-profile").addEventListener("click", openProfile);
 
+  document.querySelectorAll(".tabs .tab").forEach((t) =>
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".tabs .tab").forEach((x) =>
+        x.classList.toggle("active", x === t));
+      $("#tab-stats").hidden = t.dataset.tab !== "stats";
+      $("#tab-email").hidden = t.dataset.tab !== "email";
+    }));
+
+  profileChips.targetRoles = makeChipInput("#p-target-roles");
+  profileChips.languages = makeChipInput("#p-languages");
   profileChips.domAvoid = makeChipInput("#p-domains-avoid");
   profileChips.domLove = makeChipInput("#p-domains-love");
   profileChips.stackLove = makeChipInput("#p-stack-love");
   profileChips.stackAvoid = makeChipInput("#p-stack-avoid");
-  for (const id of ["p-coding", "p-design", "p-english"]) {
+  for (const id of ["p-coding", "p-design", "p-english", "p-behavioral"]) {
     $("#" + id).addEventListener("input", (e) => {
       $("#" + id + "-out").textContent = e.target.value;
     });
   }
   $("#p-save").addEventListener("click", saveProfile);
+
+  $("#ai-save").addEventListener("click", async () => {
+    const r = await api().save_ai_settings({
+      api_base: $("#ai-base").value,
+      api_key: $("#ai-key").value,
+      model: $("#ai-model").value,
+      auto: $("#ai-auto").checked,
+    });
+    $("#ai-key").value = "";
+    $("#ai-status").textContent = "Saved ✓ " + (r.has_key ? "· key set" : "· no key");
+  });
+  $("#ai-test").addEventListener("click", async () => {
+    $("#ai-status").textContent = "Testing…";
+    const r = await api().test_ai();
+    $("#ai-status").textContent = r.ok ? `✓ ${r.model} responds` : "✕ " + r.error;
+  });
+
+  $("#em-host").addEventListener("change", () => {
+    $("#em-customhost-wrap").hidden = $("#em-host").value !== "custom";
+  });
+  $("#em-add").addEventListener("click", async () => {
+    $("#em-status").textContent = "Verifying login…";
+    const host = $("#em-host").value === "custom"
+      ? $("#em-customhost").value : $("#em-host").value;
+    const r = await api().add_email_account(
+      $("#em-address").value, $("#em-password").value, host);
+    $("#em-status").textContent = r.ok ? "Attached ✓" : "✕ " + r.error;
+    if (r.ok) {
+      $("#em-address").value = "";
+      $("#em-password").value = "";
+      renderEmailAccounts(await api().email_accounts());
+    }
+  });
+  $("#em-check").addEventListener("click", async () => {
+    $("#em-status").textContent = "Checking inbox(es)…";
+    const r = await api().check_email_now();
+    $("#em-status").textContent = r.ok
+      ? `Found ${r.found} new repl${r.found === 1 ? "y" : "ies"}` +
+        (r.errors?.length ? ` · errors: ${r.errors.join("; ")}` : "")
+      : "✕ " + r.error;
+    renderReplies(await api().replies_feed());
+    refreshTrackers();
+  });
   $("#p-score-all").addEventListener("click", async () => {
     const r = await api().score_all_unscored();
     $("#p-status").textContent = r.queued

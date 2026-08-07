@@ -63,10 +63,23 @@ then gets an LLM verdict:
 
 ![Fit verdict in the detail pane](docs/screenshot-fit.png)
 
-Runs on your own OpenRouter key (free-tier models work — verdicts above are
-from one). New matches score automatically in the background, capped per
-open, cached until your profile changes. No key configured → the feature is
-simply dormant and nothing leaves your machine.
+Runs against **any OpenAI-compatible endpoint** — OpenRouter by default
+(free-tier models work; verdicts above are from one), or point the API base
+at OpenAI, Anthropic, Groq, or a fully local Ollama/LM Studio where job data
+never leaves your machine. New matches score automatically in the
+background, capped per open, cached until your profile changes. No key
+configured → the feature is simply dormant.
+
+## Reply detection
+
+Attach your inbox (Gmail/Yahoo/custom — IMAP app passwords, stored only in
+your local config, multiple accounts fine) and the app matches incoming
+mail against companies you applied to: direct company domains, display
+names, and ATS relays (Greenhouse/Lever/Ashby/…) when the subject names the
+company. A match stores the full sanitised body, shows it under the job and
+in the dashboard's Email tab, and flips the status to `replied` — your
+funnel updates itself. Conservative on purpose: unmatched mail is never
+stored, a missed match just means glancing at your inbox.
 
 ## The dashboard
 
