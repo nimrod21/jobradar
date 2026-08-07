@@ -203,6 +203,10 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 
+.chip-solo { border: 1px solid var(--border); margin-left: auto; }
+.chip-solo.active { border-color: var(--accent-border); }
+.chip-solo + .chips { margin-left: 0; }
+
 .chips { display: flex; gap: 0; margin-left: auto; }
 #window-chips {
   border: 1px solid var(--border); border-radius: 99px;
@@ -488,6 +492,129 @@ button { font: inherit; color: inherit; }
 .confirm-swap { display: flex; gap: 8px; align-items: center; font-size: 12.5px; }
 .confirm-swap .yes { color: var(--danger); font-weight: 650; cursor: pointer; }
 .confirm-swap .no { color: var(--text-dim); cursor: pointer; }
+
+/* ================= dashboard ================= */
+
+#dashboard-view { flex: 1; overflow-y: auto; background: var(--panel); }
+.dash-col { max-width: 820px; padding: 26px 34px 60px; }
+
+.dash-section { margin-bottom: 34px; }
+.dash-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dash-head h2 { font-size: 14px; font-weight: 650; letter-spacing: .01em; }
+
+#dash-profile label {
+  display: block; margin-bottom: 13px;
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+}
+#dash-profile .hint { font-weight: 400; color: var(--text-faint); }
+#dash-profile textarea, #dash-profile input[type=text] {
+  display: block; width: 100%;
+  margin-top: 5px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px;
+  font: 13px "Inter", system-ui, sans-serif;
+  outline: none;
+  resize: vertical;
+  transition: border-color .12s ease;
+}
+#dash-profile textarea:focus, #dash-profile input[type=text]:focus { border-color: var(--accent-border); }
+#dash-profile .chip-input input[type=text] {
+  display: inline-block; width: auto; border: 0; background: none;
+  margin-top: 0; padding: 3px 5px; flex: 1; min-width: 60px;
+}
+
+.slider-grid { display: flex; gap: 18px; margin-bottom: 4px; }
+.slider-grid label { flex: 1; }
+.slider-grid output {
+  float: right;
+  color: var(--accent); font-weight: 700; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+input[type=range] {
+  width: 100%; margin-top: 9px;
+  appearance: none; height: 4px; border-radius: 2px;
+  background: var(--panel-3);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--accent);
+  border: 0; cursor: pointer;
+}
+
+.check-row { display: flex; gap: 22px; margin-bottom: 13px; }
+.check { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 14px; height: 14px; }
+
+.dash-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+
+.cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px;
+}
+.card .v { font-size: 21px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.card .k { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.stat-block { margin-bottom: 22px; }
+.stat-block h3 {
+  font-size: 12px; font-weight: 650; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.stat-note { color: var(--text-faint); font-size: 12px; }
+
+.hbar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 12.5px; }
+.hbar .lbl { flex: 0 0 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .track { flex: 1; height: 14px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.hbar .fill { height: 100%; background: var(--accent); opacity: .75; border-radius: 4px; }
+.hbar .num { flex: 0 0 76px; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.vbars { display: flex; align-items: flex-end; gap: 4px; height: 56px; }
+.vbars .vb { flex: 1; background: var(--accent); opacity: .65; border-radius: 3px 3px 0 0; min-height: 2px; }
+.vbars-x { display: flex; gap: 4px; font-size: 10.5px; color: var(--text-faint); margin-top: 4px; }
+.vbars-x span { flex: 1; text-align: center; overflow: hidden; }
+
+.pulse-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pulse-row .lbl { flex: 0 0 150px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulse-row .vbars { flex: 1; height: 30px; }
+.pulse-row .num { flex: 0 0 60px; text-align: right; color: var(--text-dim); font-size: 12.5px; }
+
+/* ---------- fit badges ---------- */
+
+.b-fit { font-variant-numeric: tabular-nums; font-weight: 700; }
+.b-fit-hi  { color: var(--ok); background: var(--ok-dim); }
+.b-fit-mid { color: var(--text); background: var(--panel-3); }
+.b-fit-lo  { color: var(--text-dim); background: var(--panel-2); }
+
+.fit-block {
+  margin-top: 16px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg);
+  padding: 13px 16px;
+}
+.fit-head { display: flex; align-items: center; gap: 10px; }
+.fit-score { font-size: 19px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.fit-label {
+  font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+  border-radius: 99px; padding: 2px 10px;
+}
+.fit-label.safe    { color: var(--ok); background: var(--ok-dim); }
+.fit-label.stretch { color: var(--warn); background: var(--warn-dim); }
+.fit-label.reach   { color: var(--danger); background: var(--danger-dim); }
+.fit-one { margin-left: auto; color: var(--text-dim); font-size: 12.5px; text-align: right; }
+.fit-reasons { display: flex; gap: 22px; margin-top: 10px; font-size: 12.5px; }
+.fit-reasons ul { list-style: none; flex: 1; }
+.fit-reasons li { margin-bottom: 3px; }
+.fit-reasons .for li::before { content: "+ "; color: var(--ok); font-weight: 700; }
+.fit-reasons .against li::before { content: "− "; color: var(--danger); font-weight: 700; }
+.fit-hits { margin-top: 9px; display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ================= modal ================= */
 

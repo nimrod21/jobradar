@@ -48,6 +48,36 @@ One fingerprint alone misses the most common duplicate pair: the aggregator copy
 
 Every endpoint is a public JSON API intended for programmatic use, an RSS feed, or a sitemap. **No LinkedIn, Indeed or Glassdoor adapters, ever** — their terms prohibit automated access.
 
+## Fit scoring — calibrated to you, not to a keyword list
+
+Describe yourself once — stack, years, constraints — plus three self-ratings
+job boards never ask for: how confident you are in live-coding interviews,
+system-design interviews, and interviewing in English. Every tracker match
+then gets an LLM verdict:
+
+- a **score** (0–100) and a **Safe / Stretch / Reach** label — the same job
+  labels differently for different people, which is the point
+- two-line reasons for and against
+- **dealbreaker detection**: "needs US work authorization", "gambling
+  company" — any hit caps the score at 20
+
+![Fit verdict in the detail pane](docs/screenshot-fit.png)
+
+Runs on your own OpenRouter key (free-tier models work — verdicts above are
+from one). New matches score automatically in the background, capped per
+open, cached until your profile changes. No key configured → the feature is
+simply dormant and nothing leaves your machine.
+
+## The dashboard
+
+Profile editing lives at the top; below it, stats job boards can't give you:
+response rate **by source**, freshness-at-apply (median job age when you
+clicked Apply — are you systematically late?), the application funnel with
+conversion rates, market pulse per tracker, and fit calibration (average
+score of jobs you applied to vs everything else).
+
+![Dashboard](docs/screenshot-dashboard.png)
+
 ## The app
 
 pywebview + vanilla HTML/CSS/JS. No framework, no build step. Dark theme is near-black with a subtle violet accent; light theme is paper with sky.

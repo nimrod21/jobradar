@@ -27,6 +27,9 @@
 
     <div class="side-spacer"></div>
     <div class="side-divider"></div>
+    <button id="nav-dashboard" class="tracker-item">
+      <span class="t-name">▦ Dashboard</span>
+    </button>
     <button id="nav-applied" class="tracker-item applied-nav">
       <span class="t-name">✓ Applied</span>
       <span class="t-count" id="applied-count" hidden>0</span>
@@ -43,6 +46,7 @@
       </div>
       <div class="topbar-right">
         <span id="result-count"></span>
+        <button id="fit-sort" class="chip chip-solo" title="Sort by fit score">Fit ↓</button>
         <div id="window-chips" class="chips">
           <button class="chip" data-w="24h">24h</button>
           <button class="chip" data-w="7d">7d</button>
@@ -64,6 +68,78 @@
         <div id="applied-pending"></div>
         <h2 class="applied-done-h">Applied</h2>
         <div id="applied-done"></div>
+      </div>
+    </div>
+
+    <div id="dashboard-view" hidden>
+      <div class="dash-col">
+
+        <section class="dash-section" id="dash-profile">
+          <div class="dash-head">
+            <h2>Profile &amp; Fit Scoring</h2>
+            <span id="p-key-status" class="muted"></span>
+          </div>
+          <label>Who You Are <span class="hint">stack, years, notable work — the base the scoring reasons over</span>
+            <textarea id="p-summary" rows="4" placeholder="Full-stack + AI engineer, 6 years. Python, TypeScript…"></textarea>
+          </label>
+          <div class="slider-grid">
+            <label>Live-Coding Interview <output id="p-coding-out">5</output>
+              <input type="range" id="p-coding" min="1" max="10" value="5">
+            </label>
+            <label>System-Design Interview <output id="p-design-out">5</output>
+              <input type="range" id="p-design" min="1" max="10" value="5">
+            </label>
+            <label>Spoken-English Interview <output id="p-english-out">5</output>
+              <input type="range" id="p-english" min="1" max="10" value="5">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Minimum Salary
+              <input type="text" id="p-minsalary" placeholder="60000">
+            </label>
+            <label>Currency
+              <input type="text" id="p-currency" placeholder="USD">
+            </label>
+            <label>Timezone Window
+              <input type="text" id="p-tz" placeholder="UTC+0..UTC+6">
+            </label>
+          </div>
+          <div class="check-row">
+            <label class="check"><input type="checkbox" id="p-sponsorship"> I need visa sponsorship</label>
+            <label class="check"><input type="checkbox" id="p-contract" checked> Contract / freelance is fine</label>
+          </div>
+          <div class="form-row">
+            <label>Domains to Avoid <span class="hint">dealbreakers</span>
+              <div class="chip-input" id="p-domains-avoid"></div>
+            </label>
+            <label>Domains You'd Love
+              <div class="chip-input" id="p-domains-love"></div>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Stack You Prefer
+              <div class="chip-input" id="p-stack-love"></div>
+            </label>
+            <label>Stack to Avoid
+              <div class="chip-input" id="p-stack-avoid"></div>
+            </label>
+          </div>
+          <label>Other Dealbreakers <span class="hint">free text, passed verbatim</span>
+            <input type="text" id="p-dealbreakers" placeholder="No 100% travel roles; no on-call weeks…">
+          </label>
+          <div class="dash-actions">
+            <button id="p-save" class="btn-primary">Save Profile</button>
+            <button id="p-score-all" class="btn-quiet">Score All Unscored</button>
+            <span id="p-status" class="muted"></span>
+          </div>
+        </section>
+
+        <section class="dash-section">
+          <div class="dash-head"><h2>Stats</h2></div>
+          <div id="dash-cards" class="cards"></div>
+          <div id="dash-stats"></div>
+        </section>
+
       </div>
     </div>
   </main>

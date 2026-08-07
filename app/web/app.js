@@ -26,9 +26,10 @@ const state = {
   trackerId: null,
   jobs: [],
   selected: -1,
-  view: "tracker",          // 'tracker' | 'applied'
+  view: "tracker",          // 'tracker' | 'applied' | 'dashboard'
   windowOverride: null,     // session-only view override of the tracker's window
   query: "",
+  sortByFit: false,
   dbOk: true,
 };
 
@@ -94,6 +95,7 @@ async function openTracker(id) {
   renderResults();
   renderDetailForSelection();
   refreshTrackers();
+  api().score_new(id).then((r) => { if (r.queued) startScorePolling(); });
 }
 
 const rerunSearch = debounce(async () => {
@@ -136,9 +138,50 @@ function renderSkeleton() {
   }
 }
 
+/* ---------- fit scoring ---------- */
+
+let scorePollTimer = null;
+
+function startScorePolling() {
+  if (scorePollTimer) return;
+  const tick = async () => {
+    const d = await api().score_poll();
+    if (d.scored.length) applyScores(d.scored);
+    if (d.active) scorePollTimer = setTimeout(tick, 2500);
+    else scorePollTimer = null;
+  };
+  scorePollTimer = setTimeout(tick, 2000);
+}
+
+function applyScores(scored) {
+  let touched = false;
+  for (const s of scored) {
+    const j = state.jobs.find((x) => x.id === s.job_id);
+    if (j && !s.failed) {
+      j.fit_score = s.score;
+      j.fit_label = s.label;
+      j.fit_one_liner = s.one_liner;
+      touched = true;
+    }
+  }
+  if (touched && state.view === "tracker") renderResults();
+  const st = $("#p-status");
+  if (state.view === "dashboard" && st) st.textContent = "Scoring… results are coming in.";
+}
+
+function fitPill(j) {
+  if (j.fit_score == null) return null;
+  const band = j.fit_score >= 70 ? "hi" : j.fit_score >= 40 ? "mid" : "lo";
+  const pill = el("span", `badge b-fit b-fit-${band}`, String(j.fit_score));
+  if (j.fit_one_liner) pill.title = j.fit_one_liner;
+  return pill;
+}
+
 function renderResults() {
   const r = $("#results");
+  const scroll = r.scrollTop;
   r.innerHTML = "";
+  r.scrollTop = scroll;
   const newCount = state.jobs.filter((j) => j.is_new).length;
   $("#result-count").textContent = state.jobs.length
     ? `${state.jobs.length} jobs${newCount ? ` · ${newCount} new` : ""}` : "";
@@ -173,6 +216,8 @@ function renderResults() {
     row.append(meta);
 
     const badges = el("div", "row-badges");   // always its own line, never inline
+    const pill = fitPill(j);
+    if (pill) badges.append(pill);
     if (j.sources?.length) badges.append(el("span", "badge b-src", srcBase(j.sources[0])));
     if (j.source_count > 1) badges.append(el("span", "badge b-src", "×" + j.source_count));
     if (j.remote_flag) badges.append(el("span", "badge b-remote", "remote"));
@@ -267,6 +312,32 @@ async function renderDetailForSelection() {
   for (const f of full.geo_flags || []) badges.append(el("span", "badge b-geo", "⚠ " + f));
   if (full.source_count > 1) badges.append(el("span", "badge b-src", "on " + full.source_count + " boards"));
   if (badges.children.length) w.append(badges);
+
+  const v = full.fit_verdict;
+  if (v && full.fit_score != null) {
+    const fb = el("div", "fit-block");
+    const head = el("div", "fit-head");
+    head.append(el("span", "fit-score", String(full.fit_score)));
+    head.append(el("span", "fit-label " + (v.label || ""), v.label || ""));
+    if (v.one_liner) head.append(el("span", "fit-one", v.one_liner));
+    fb.append(head);
+    if (v.reasons_for?.length || v.reasons_against?.length) {
+      const rr = el("div", "fit-reasons");
+      const mk = (cls, items) => {
+        const ul = el("ul", cls);
+        for (const s of items || []) ul.append(el("li", null, s));
+        return ul;
+      };
+      rr.append(mk("for", v.reasons_for), mk("against", v.reasons_against));
+      fb.append(rr);
+    }
+    if (v.dealbreaker_hits?.length) {
+      const hits = el("div", "fit-hits");
+      for (const h of v.dealbreaker_hits) hits.append(el("span", "badge b-geo", "✕ " + h));
+      fb.append(hits);
+    }
+    w.append(fb);
+  }
 
   const actions = el("div", "d-actions");
   const apply = el("button", "btn-primary", full.apply_clicked_at ? "Apply ↗ (clicked)" : "Apply ↗");
@@ -381,15 +452,184 @@ function appliedRow(j, pending) {
   return row;
 }
 
+/* ---------- dashboard ---------- */
+
+const profileChips = {};
+
+async function openDashboard() {
+  state.view = "dashboard";
+  showView();
+  const p = await api().get_profile();
+  $("#p-key-status").textContent = p.scoring_enabled
+    ? "Scoring: " + (p.model || "model set")
+    : "No OpenRouter key in jobradar.toml — scoring is off, everything else works";
+  $("#p-summary").value = p.summary || "";
+  for (const [id, key] of [["p-coding", "conf_coding"], ["p-design", "conf_design"],
+                           ["p-english", "conf_english"]]) {
+    $("#" + id).value = p[key] || 5;
+    $("#" + id + "-out").textContent = p[key] || 5;
+  }
+  $("#p-minsalary").value = p.min_salary ?? "";
+  $("#p-currency").value = p.salary_currency || "USD";
+  $("#p-tz").value = p.tz_range || "";
+  $("#p-sponsorship").checked = !!p.needs_sponsorship;
+  $("#p-contract").checked = p.contract_ok !== false;
+  profileChips.domAvoid.set(p.domains_avoid);
+  profileChips.domLove.set(p.domains_love);
+  profileChips.stackLove.set(p.stack_love);
+  profileChips.stackAvoid.set(p.stack_avoid);
+  $("#p-dealbreakers").value = p.dealbreakers || "";
+  renderStats(await api().dashboard_stats());
+}
+
+async function saveProfile() {
+  $("#p-status").textContent = "Saving…";
+  await api().save_profile({
+    summary: $("#p-summary").value,
+    conf_coding: Number($("#p-coding").value),
+    conf_design: Number($("#p-design").value),
+    conf_english: Number($("#p-english").value),
+    min_salary: Number($("#p-minsalary").value.replace(/[^\d.]/g, "")) || null,
+    salary_currency: $("#p-currency").value,
+    tz_range: $("#p-tz").value,
+    needs_sponsorship: $("#p-sponsorship").checked,
+    contract_ok: $("#p-contract").checked,
+    domains_avoid: profileChips.domAvoid.get(),
+    domains_love: profileChips.domLove.get(),
+    stack_love: profileChips.stackLove.get(),
+    stack_avoid: profileChips.stackAvoid.get(),
+    dealbreakers: $("#p-dealbreakers").value,
+  });
+  $("#p-status").textContent = "Saved ✓ — existing scores rescore as trackers open.";
+}
+
+function statBlock(title, note) {
+  const b = el("div", "stat-block");
+  b.append(el("h3", null, title));
+  if (note) b.append(el("div", "stat-note", note));
+  return b;
+}
+
+function hbar(label, frac, numText) {
+  const row = el("div", "hbar");
+  row.append(el("div", "lbl", label));
+  const track = el("div", "track");
+  const fill = el("div", "fill");
+  fill.style.width = Math.max(2, Math.round(frac * 100)) + "%";
+  track.append(fill);
+  row.append(track);
+  row.append(el("div", "num", numText));
+  return row;
+}
+
+function renderStats(s) {
+  const cards = $("#dash-cards");
+  cards.innerHTML = "";
+  const t = s.totals;
+  const rate = t.applied ? Math.round(100 * t.replied / t.applied) + "%" : "—";
+  for (const [v, k] of [[t.total, "jobs tracked"], [t.new_week, "new this week"],
+                        [t.applied, "applied"], [t.replied, "replied"],
+                        [rate, "response rate"]]) {
+    const c = el("div", "card");
+    c.append(el("div", "v", String(v)));
+    c.append(el("div", "k", k));
+    cards.append(c);
+  }
+
+  const box = $("#dash-stats");
+  box.innerHTML = "";
+
+  const funnel = statBlock("Funnel");
+  const steps = [["Clicked apply", t.clicked], ["Confirmed applied", t.applied],
+                 ["Got a reply", t.replied], ["Rejected", t.rejected]];
+  const max = Math.max(1, t.clicked);
+  let prev = null;
+  for (const [lbl, n] of steps) {
+    const pct = prev ? ` (${Math.round(100 * n / Math.max(1, prev))}%)` : "";
+    funnel.append(hbar(lbl, n / max, n + pct));
+    prev = n;
+  }
+  box.append(funnel);
+
+  if (s.by_source.length) {
+    const bs = statBlock("Response Rate by Source", "sources with 3+ confirmed applications");
+    for (const r of s.by_source) {
+      bs.append(hbar(r.source, r.apps ? r.replies / r.apps : 0,
+                     `${r.replies}/${r.apps}`));
+    }
+    box.append(bs);
+  }
+
+  const fr = statBlock("Freshness at Apply");
+  fr.append(el("div", null, s.freshness_hours == null
+    ? "No applications with confident dates yet."
+    : `Median job age when you clicked Apply: ${s.freshness_hours < 48
+        ? s.freshness_hours + " hours" : Math.round(s.freshness_hours / 24) + " days"}.`));
+  box.append(fr);
+
+  if (s.per_week.length) {
+    const pw = statBlock("Applications per Week");
+    const bars = el("div", "vbars");
+    const labels = el("div", "vbars-x");
+    const mx = Math.max(...s.per_week.map((w) => w.n), 1);
+    for (const w of s.per_week) {
+      const vb = el("div", "vb");
+      vb.style.height = Math.round(100 * w.n / mx) + "%";
+      vb.title = `${w.wk}: ${w.n}`;
+      bars.append(vb);
+      labels.append(el("span", null, w.wk));
+    }
+    pw.append(bars, labels);
+    box.append(pw);
+  }
+
+  if (s.pulse.length) {
+    const pu = statBlock("Market Pulse", "jobs per day matching each tracker, last 14 days");
+    const today = Date.now();
+    for (const p of s.pulse) {
+      const row = el("div", "pulse-row");
+      row.append(el("div", "lbl", p.name));
+      const bars = el("div", "vbars");
+      const counts = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(today - i * 86400000).toISOString().slice(0, 10);
+        counts.push(p.days[d] || 0);
+      }
+      const mx = Math.max(...counts, 1);
+      for (const n of counts) {
+        const vb = el("div", "vb");
+        vb.style.height = Math.max(4, Math.round(100 * n / mx)) + "%";
+        if (!n) vb.style.opacity = ".15";
+        bars.append(vb);
+      }
+      row.append(bars);
+      row.append(el("div", "num", String(p.total)));
+      pu.append(row);
+    }
+    box.append(pu);
+  }
+
+  if (s.fit && s.fit.scored > 0) {
+    const fc = statBlock("Fit Calibration");
+    const a = s.fit.avg_applied, sk = s.fit.avg_skipped;
+    fc.append(el("div", null,
+      `Average fit of jobs you applied to: ${a ?? "—"} · everything else: ${sk ?? "—"}` +
+      (a != null && sk != null && a < sk ? "  — you're applying below your best matches." : "")));
+    box.append(fc);
+  }
+}
+
 function showView() {
-  const applied = state.view === "applied";
-  $("#content").hidden = applied;
-  $("#topbar").style.display = applied ? "none" : "";
-  $("#applied-view").hidden = !applied;
-  document.querySelectorAll(".tracker-item").forEach((b) =>
+  const v = state.view;
+  $("#content").hidden = v !== "tracker";
+  $("#topbar").style.display = v === "tracker" ? "" : "none";
+  $("#applied-view").hidden = v !== "applied";
+  $("#dashboard-view").hidden = v !== "dashboard";
+  document.querySelectorAll("#tracker-list .tracker-item").forEach((b) =>
     b.classList.toggle("active",
-      !applied && Number(b.dataset.id) === state.trackerId));
-  $("#nav-applied").classList.toggle("active", applied);
+      v === "tracker" && Number(b.dataset.id) === state.trackerId));
+  $("#nav-applied").classList.toggle("active", v === "applied");
+  $("#nav-dashboard").classList.toggle("active", v === "dashboard");
 }
 
 /* ---------- tracker modal ---------- */
@@ -633,6 +873,38 @@ window.addEventListener("pywebviewready", () => {
   });
   $("#new-tracker").addEventListener("click", () => openModal(null));
   $("#nav-applied").addEventListener("click", openApplied);
+  $("#nav-dashboard").addEventListener("click", openDashboard);
+
+  profileChips.domAvoid = makeChipInput("#p-domains-avoid");
+  profileChips.domLove = makeChipInput("#p-domains-love");
+  profileChips.stackLove = makeChipInput("#p-stack-love");
+  profileChips.stackAvoid = makeChipInput("#p-stack-avoid");
+  for (const id of ["p-coding", "p-design", "p-english"]) {
+    $("#" + id).addEventListener("input", (e) => {
+      $("#" + id + "-out").textContent = e.target.value;
+    });
+  }
+  $("#p-save").addEventListener("click", saveProfile);
+  $("#p-score-all").addEventListener("click", async () => {
+    const r = await api().score_all_unscored();
+    $("#p-status").textContent = r.queued
+      ? `Queued ${r.queued} jobs for scoring…`
+      : "Nothing unscored (or no key configured).";
+    if (r.queued) startScorePolling();
+  });
+
+  $("#fit-sort").addEventListener("click", () => {
+    state.sortByFit = !state.sortByFit;
+    $("#fit-sort").classList.toggle("active", state.sortByFit);
+    if (state.sortByFit) {
+      state.jobs.sort((a, b) => (b.fit_score ?? -1) - (a.fit_score ?? -1));
+      state.selected = -1;
+      renderResults();
+      renderDetailForSelection();
+    } else {
+      rerunSearch();
+    }
+  });
   $("#f-cancel").addEventListener("click", () => { $("#modal-backdrop").hidden = true; });
   $("#f-save").addEventListener("click", saveModal);
   $("#f-locmode").addEventListener("change", updateLocValue);
