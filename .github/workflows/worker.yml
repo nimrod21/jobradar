@@ -6,7 +6,10 @@ name: worker
 
 on:
   schedule:
-    - cron: "7 * * * *"   # hourly, offset from :00 when GitHub's queue spikes
+    # Hourly, offset from :00 when GitHub's queue spikes. If scheduled runs
+    # ever stop appearing, re-push this file — GitHub's scheduler sometimes
+    # drops registrations and a workflow-file commit re-registers it.
+    - cron: "7 * * * *"
   workflow_dispatch:       # manual "Run workflow" button
 
 concurrency:
