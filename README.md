@@ -1,8 +1,14 @@
 # JobRadar
 
-Personal job-search aggregator. A worker polls ~20 job sources hourly, normalises and de-duplicates everything into Postgres, and a desktop app searches the local copy — because job boards are individually bad at search. LinkedIn doesn't index description bodies; Workable turns "agentic" into 2,015 leasing-agent listings. Fetch from everything, store it once, search your own copy.
+**Your personal job radar: 20+ sources, one deduplicated feed, AI that scores every job against *you* — self-hosted, free to run, your data never touches anyone else's servers.**
+
+![License: MIT](https://img.shields.io/badge/license-MIT-8b5cf6) ![Python](https://img.shields.io/badge/python-3.11%2B-8b5cf6) ![Tests](https://img.shields.io/badge/tests-82%20passing-4ade80) ![Worker](https://img.shields.io/badge/worker-serverless%20(GitHub%20Actions)-4ade80)
+
+Job boards are individually bad at search: LinkedIn doesn't index description bodies, Workable turns "agentic" into 2,015 leasing-agent listings, and every board shows you the same syndicated duplicates. JobRadar fetches from everything, collapses the duplicates at write time, and gives you one fast, honest, keyboard-driven feed — with an LLM verdict on every match, calibrated by interview-confidence self-ratings no job site asks for.
 
 ![JobRadar dark theme](docs/screenshot-dark.png)
+
+**Install:** [download the Windows build](https://github.com/nimrod21/jobradar/releases/latest) or clone and `python -m app.main` — either way, a built-in wizard sets everything up: **register two free accounts, paste three strings, done.** Details below. *(Windows SmartScreen will warn on an unsigned indie exe — "More info → Run anyway".)*
 
 ```
   [hourly scheduler on a VPS]

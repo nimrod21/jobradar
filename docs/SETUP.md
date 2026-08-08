@@ -1,8 +1,14 @@
 # Setting up JobRadar from scratch
 
-Everything you need to run your own instance: a free Supabase project, any
-small Linux VPS for the worker (Oracle Cloud free tier shown), and the desktop
-app on your machine. No step assumes anything from my accounts — clone and go.
+> **Most people don't need this document.** The app has a built-in setup
+> wizard: launch it with no config and it walks you through the three steps
+> (Supabase string → GitHub token → AI key) and does all the wiring itself.
+> This document is the manual/advanced path: running the worker on a VPS,
+> understanding what the wizard automates, or building the exe yourself.
+
+Everything you need to run your own instance: a free Supabase project, a
+worker on GitHub Actions or any small Linux VPS, and the desktop app on your
+machine. No step assumes anything from my accounts — clone and go.
 
 ---
 
