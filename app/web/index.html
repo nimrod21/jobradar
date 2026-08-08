@@ -76,6 +76,69 @@
       </div>
     </div>
 
+    <div id="setup-view" hidden>
+      <div class="dash-col">
+        <div class="dash-head"><h2>Welcome to JobRadar</h2><span class="muted">register → paste → done</span></div>
+        <p class="stat-note">Three short steps. You create the free accounts; the app does all the wiring itself.</p>
+
+        <section class="dash-section setup-step">
+          <h3>1 · Database <span id="s1-state"></span></h3>
+          <p class="setup-guide">Create a free project at <b>supabase.com</b> → New Project (any name; save the
+          database password) → top bar <b>Connect</b> → <b>Session pooler</b> tab → copy the string and put your
+          password into it.</p>
+          <label>Connection String
+            <input type="password" id="s1-url" placeholder="postgresql://postgres.xxxx:yourpassword@aws-0-….pooler.supabase.com:5432/postgres">
+          </label>
+          <div class="dash-actions">
+            <button id="s1-go" class="btn-primary">Connect &amp; Build Database</button>
+            <span id="s1-msg" class="muted"></span>
+          </div>
+        </section>
+
+        <section class="dash-section setup-step">
+          <h3>2 · Background Worker <span id="s2-state"></span></h3>
+          <p class="setup-guide"><b>Fork</b> github.com/nimrod21/jobradar (Fork button, top right), then create a
+          token: <b>github.com → Settings → Developer settings → Fine-grained tokens → Generate</b> — select only
+          your fork, give it <b>Secrets: Read and write</b> and <b>Actions: Read and write</b>. The token is used
+          once for wiring and never stored.</p>
+          <div class="form-row">
+            <label>Token
+              <input type="password" id="s2-token" placeholder="github_pat_…">
+            </label>
+            <label>Your Fork <span class="hint">blank = yourname/jobradar</span>
+              <input type="text" id="s2-repo" placeholder="yourname/jobradar">
+            </label>
+          </div>
+          <div class="dash-actions">
+            <button id="s2-go" class="btn-primary">Wire Worker &amp; Fetch First Jobs</button>
+            <span id="s2-msg" class="muted"></span>
+          </div>
+        </section>
+
+        <section class="dash-section setup-step">
+          <h3>3 · AI Fit Scoring <span class="hint">optional — everything else works without it</span> <span id="s3-state"></span></h3>
+          <p class="setup-guide" id="s3-guide"></p>
+          <div class="form-row">
+            <label>Provider
+              <select id="s3-preset"></select>
+            </label>
+            <label>API Key <span class="hint">local Ollama needs none</span>
+              <input type="password" id="s3-key" placeholder="paste the key">
+            </label>
+          </div>
+          <div class="dash-actions">
+            <button id="s3-go" class="btn-primary">Add &amp; Test</button>
+            <span id="s3-msg" class="muted"></span>
+          </div>
+        </section>
+
+        <div class="dash-actions">
+          <button id="setup-finish" class="btn-primary" hidden>Open JobRadar →</button>
+          <span id="setup-skip" class="muted" style="cursor:pointer">Skip for now</span>
+        </div>
+      </div>
+    </div>
+
     <div id="profile-view" hidden>
       <div class="dash-col" id="dash-profile">
         <div class="dash-head">
@@ -222,9 +285,22 @@
             <div class="dash-head"><h2>AI Providers</h2><span id="ai-status" class="muted"></span></div>
             <div id="ai-providers"></div>
             <p class="stat-note">Tried top to bottom; a provider that rate-limits cools down for 15 minutes
-            while the next takes over. Any OpenAI-compatible endpoint works — add or edit them in
-            jobradar.toml ([[scoring.providers]]) next to the app, including local Ollama
-            (http://localhost:11434/v1, no key).</p>
+            while the next takes over. Any OpenAI-compatible endpoint works, including local Ollama (no key).</p>
+            <div class="form-row">
+              <label>Add Provider
+                <select id="aiadd-preset"></select>
+              </label>
+              <label>API Key
+                <input type="password" id="aiadd-key" placeholder="paste the key">
+              </label>
+              <label>Model <span class="hint">blank = preset default</span>
+                <input type="text" id="aiadd-model" placeholder="">
+              </label>
+            </div>
+            <div class="dash-actions">
+              <button id="aiadd-go" class="btn-quiet">Add &amp; Test</button>
+              <span id="aiadd-msg" class="muted"></span>
+            </div>
             <div class="check-row">
               <label class="check"><input type="checkbox" id="ai-auto" checked> Score new matches automatically</label>
             </div>

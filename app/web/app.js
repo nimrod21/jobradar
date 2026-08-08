@@ -548,8 +548,7 @@ function renderProviders(providers) {
   const box = $("#ai-providers");
   box.innerHTML = "";
   if (!providers.length) {
-    box.append(el("div", "stat-note",
-      "No providers configured — add [[scoring.providers]] blocks to jobradar.toml."));
+    box.append(el("div", "stat-note", "No providers yet — add one below."));
     return;
   }
   for (const p of providers) {
@@ -565,7 +564,12 @@ function renderProviders(providers) {
       t.textContent = r.ok ? "✓ OK" : "✕ failed";
       $("#ai-status").textContent = r.ok ? `${p.name} responds` : r.error;
     });
-    row.append(t);
+    const rm = el("button", "btn-quiet btn-danger", "Remove");
+    rm.addEventListener("click", async () => {
+      const r = await api().remove_ai_provider(p.name);
+      renderProviders(r.providers);
+    });
+    row.append(t, rm);
     box.append(row);
   }
 }
@@ -739,6 +743,7 @@ function showView() {
   $("#applied-view").hidden = v !== "applied";
   $("#dashboard-view").hidden = v !== "dashboard";
   $("#profile-view").hidden = v !== "profile";
+  $("#setup-view").hidden = v !== "setup";
   document.querySelectorAll("#tracker-list .tracker-item").forEach((b) =>
     b.classList.toggle("active",
       v === "tracker" && Number(b.dataset.id) === state.trackerId));
@@ -945,10 +950,91 @@ async function checkDb() {
 
 /* ---------- boot ---------- */
 
+/* ---------- setup wizard ---------- */
+
+async function fillPresetSelect(sel, presets) {
+  sel.innerHTML = "";
+  for (const [name, p] of Object.entries(presets)) {
+    const o = el("option", null,
+      name[0].toUpperCase() + name.slice(1) + (name === "ollama" ? " — local, no key" : ""));
+    o.value = name;
+    sel.append(o);
+  }
+}
+
+async function openSetup() {
+  state.view = "setup";
+  showView();
+  const presets = await api().ai_presets();
+  fillPresetSelect($("#s3-preset"), presets);
+  const guide = () => {
+    const p = presets[$("#s3-preset").value];
+    $("#s3-guide").innerHTML =
+      `Get a free key at <b>${p.key_url}</b> — account, API keys page, create, copy. ` +
+      `You can add several providers later; they take over from each other when one runs out.`;
+  };
+  $("#s3-preset").addEventListener("change", guide);
+  guide();
+}
+
+function wireSetup() {
+  $("#s1-go").addEventListener("click", async () => {
+    $("#s1-msg").textContent = "Connecting and building…";
+    const r = await api().setup_db($("#s1-url").value);
+    if (r.ok) {
+      $("#s1-state").innerHTML = '<span class="step-ok">✓ done</span>';
+      $("#s1-msg").textContent = r.note === "existing database adopted"
+        ? "Connected — existing database recognised."
+        : `Database built (${(r.applied || []).length} migrations).`;
+      $("#setup-finish").hidden = false;
+    } else {
+      $("#s1-msg").textContent = "✕ " + r.error;
+    }
+  });
+
+  $("#s2-go").addEventListener("click", async () => {
+    $("#s2-msg").textContent = "Wiring your fork…";
+    const r = await api().setup_worker($("#s2-token").value, $("#s2-repo").value);
+    if (r.ok) {
+      $("#s2-state").innerHTML = '<span class="step-ok">✓ done</span>';
+      $("#s2-msg").textContent = `Worker wired on ${r.repo}` +
+        (r.first_run_fired ? " — first fetch is running, jobs arrive in ~5 minutes." : ".");
+      $("#s2-token").value = "";
+    } else {
+      $("#s2-msg").textContent = "✕ " + r.error;
+    }
+  });
+
+  $("#s3-go").addEventListener("click", async () => {
+    $("#s3-msg").textContent = "Testing the key…";
+    const r = await api().add_ai_provider($("#s3-preset").value, $("#s3-key").value, "", "");
+    if (r.ok) {
+      $("#s3-state").innerHTML = '<span class="step-ok">✓ done</span>';
+      $("#s3-msg").textContent = "Provider added and responding.";
+      $("#s3-key").value = "";
+    } else {
+      $("#s3-msg").textContent = "✕ " + (r.error || "failed");
+    }
+  });
+
+  const enter = () => bootMain();
+  $("#setup-finish").addEventListener("click", enter);
+  $("#setup-skip").addEventListener("click", enter);
+}
+
 async function boot() {
   const cfg = await api().get_config();
   document.documentElement.dataset.theme = cfg.theme || "dark";
+  if (!cfg.db_configured) {
+    openSetup();
+    return;
+  }
+  await bootMain();
+}
 
+async function bootMain() {
+  state.view = "tracker";
+  showView();
   const jobs = await checkDb();
   setInterval(async () => { if (!state.dbOk) checkDb(); }, 30000);
 
@@ -1017,6 +1103,21 @@ window.addEventListener("pywebviewready", () => {
     $("#ai-status").textContent = "Saved ✓";
     renderProviders(r.providers);
   });
+  api().ai_presets().then((presets) => fillPresetSelect($("#aiadd-preset"), presets));
+  $("#aiadd-go").addEventListener("click", async () => {
+    $("#aiadd-msg").textContent = "Testing…";
+    const r = await api().add_ai_provider(
+      $("#aiadd-preset").value, $("#aiadd-key").value, $("#aiadd-model").value, "");
+    if (r.ok) {
+      $("#aiadd-msg").textContent = "Added ✓";
+      $("#aiadd-key").value = "";
+      $("#aiadd-model").value = "";
+      renderProviders(r.providers);
+    } else {
+      $("#aiadd-msg").textContent = "✕ " + (r.error || "failed");
+    }
+  });
+  wireSetup();
 
   $("#em-host").addEventListener("change", () => {
     $("#em-customhost-wrap").hidden = $("#em-host").value !== "custom";

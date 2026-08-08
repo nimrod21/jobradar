@@ -105,9 +105,24 @@ pywebview + vanilla HTML/CSS/JS. No framework, no build step. Dark theme is near
 - **Applied page** — every job whose Apply button you clicked lands in a to-confirm list; confirm "I applied" or remove it. Answers "did I actually apply to that one?" after the browser opened and life happened
 - Badges on every row: `remote`, geo red-flags, and ×N syndication count (a job on 5 boards is usually an agency requisition; one only on the company's own board is usually real)
 
-## Setup
+## Install — register, paste, done
 
-Full from-scratch walkthrough (Supabase project, Oracle free-tier VPS, packaging): **[docs/SETUP.md](docs/SETUP.md)**. Short version:
+The app has a **built-in setup wizard**: on first launch it walks you through
+three steps, and it does all the technical work itself.
+
+1. **Database** — create a free [supabase.com](https://supabase.com) project,
+   paste one connection string → the app builds its entire database for you.
+2. **Background worker** — fork this repo, paste one GitHub token → the app
+   wires the hourly job-fetcher on your account and fires the first fetch.
+3. **AI scoring** *(optional)* — grab a free key (Groq, Google AI Studio,
+   OpenRouter…), paste it → tested and configured on the spot. Or run
+   [Ollama](https://ollama.com) locally with no key at all.
+
+You bring your own free accounts; nothing is shared with anyone, nothing
+runs on anyone else's servers, and the author never sees your data.
+
+For the manual/advanced path (VPS worker, building the exe yourself):
+**[docs/SETUP.md](docs/SETUP.md)**. Developer quickstart:
 
 ```bash
 # 1. Database: create a Supabase project, run migrations/*.sql in order

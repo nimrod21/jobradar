@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 
 from worker.geo import REGION_GROUPS
 from . import emails as emails_mod
+from . import setup as setup_mod
 from .sanitize import sanitize_html
 from .score_queue import ScoreQueue
 from .scoring import profile_version
@@ -598,11 +599,84 @@ class Api:
                 "freshness_hours": round(freshness_hours, 1) if freshness_hours else None,
                 "per_week": per_week, "pulse": pulse, "fit": fit}
 
+    # -- setup wizard --------------------------------------------------------
+
+    def setup_state(self) -> dict:
+        state = {"db_configured": bool(self._url), "db_ok": False,
+                 "providers": len(self._squeue.provider_status()),
+                 "email_accounts": len(self._config.get("email", []))}
+        if self._url:
+            state["db_ok"] = self.ping().get("ok", False)
+        return state
+
+    def setup_db(self, url: str) -> dict:
+        url = (url or "").strip()
+        if not url.startswith("postgres"):
+            return {"ok": False, "error": "That doesn't look like a Postgres connection string."}
+        if ":6543/" in url:
+            return {"ok": False, "error": "That's the transaction pooler (port 6543) — "
+                                          "use the Session pooler string (port 5432)."}
+        t = setup_mod.test_db(url)
+        if not t["ok"]:
+            return t
+        m = setup_mod.run_migrations(url)
+        if not m["ok"]:
+            return m
+        self._url = url
+        self._conn = None
+        self._config["database_url"] = url
+        self._save_config(self._config)
+        self._squeue = ScoreQueue(url, self._scoring_cfg)
+        return {"ok": True, "applied": m.get("applied", []), "note": m.get("note")}
+
+    def setup_worker(self, token: str, repo: str = "") -> dict:
+        if not self._url:
+            return {"ok": False, "error": "Set up the database first."}
+        return setup_mod.setup_github(token, self._url, repo)
+
+    def ai_presets(self) -> dict:
+        return setup_mod.AI_PRESETS
+
+    def add_ai_provider(self, preset: str, api_key: str, model: str = "",
+                        api_base: str = "") -> dict:
+        p = setup_mod.AI_PRESETS.get(preset, {})
+        base = (api_base or p.get("api_base", "")).strip().rstrip("/")
+        if not base:
+            return {"ok": False, "error": "No API base URL."}
+        prov = {"name": preset if preset in setup_mod.AI_PRESETS else base.split("/")[2],
+                "api_base": base, "api_key": (api_key or "").strip(),
+                "model": (model or p.get("model", "")).strip()}
+        probe = ScoreQueue(self._url, {"providers": [prov]})
+        if not probe.enabled:
+            return {"ok": False, "error": "A key is required for non-local endpoints."}
+        t = probe.test_connection()
+        if not t["ok"]:
+            return t
+        sc = dict(self._scoring_cfg)
+        provs = [q for q in sc.get("providers", []) if q.get("name") != prov["name"]]
+        provs.append(prov)
+        sc["providers"] = provs
+        self._config["scoring"] = sc
+        self._scoring_cfg = sc
+        self._save_config(self._config)
+        self._squeue = ScoreQueue(self._url, sc)
+        return {"ok": True, **self.get_ai_settings()}
+
+    def remove_ai_provider(self, name: str) -> dict:
+        sc = dict(self._scoring_cfg)
+        sc["providers"] = [q for q in sc.get("providers", []) if q.get("name") != name]
+        self._config["scoring"] = sc
+        self._scoring_cfg = sc
+        self._save_config(self._config)
+        self._squeue = ScoreQueue(self._url, sc)
+        return {"ok": True, **self.get_ai_settings()}
+
     # -- config ------------------------------------------------------------
 
     def get_config(self) -> dict:
         return {"theme": self._config.get("theme", "dark"),
-                "scoring_enabled": self._squeue.enabled}
+                "scoring_enabled": self._squeue.enabled,
+                "db_configured": bool(self._url)}
 
     def set_theme(self, theme: str) -> dict:
         if theme in ("dark", "light"):
