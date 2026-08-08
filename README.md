@@ -63,12 +63,15 @@ then gets an LLM verdict:
 
 ![Fit verdict in the detail pane](docs/screenshot-fit.png)
 
-Runs against **any OpenAI-compatible endpoint** — OpenRouter by default
-(free-tier models work; verdicts above are from one), or point the API base
-at OpenAI, Anthropic, Groq, or a fully local Ollama/LM Studio where job data
-never leaves your machine. New matches score automatically in the
-background, capped per open, cached until your profile changes. No key
-configured → the feature is simply dormant.
+Runs against **any OpenAI-compatible endpoint, and as many as you like** —
+configure a chain of providers (`[[scoring.providers]]`) and a rate-limited
+one cools down for 15 minutes while the next takes over. Stack a few free
+tiers (Groq, Google AI Studio, OpenRouter's free pool, GitHub Models,
+Cerebras…) and scoring effectively never runs out; or point one entry at a
+local Ollama/LM Studio and job data never leaves your machine. Every
+verdict records which provider:model produced it. New matches score
+automatically in the background, capped per open, cached until your profile
+changes. No providers configured → the feature is simply dormant.
 
 ## Reply detection
 

@@ -65,11 +65,17 @@ def save_config(cfg: dict) -> None:
     sc = cfg.get("scoring") or {}
     if sc:
         lines += ["", "[scoring]",
-                  f'api_base = "{sc.get("api_base", "https://openrouter.ai/api/v1")}"',
-                  f'openrouter_api_key = "{sc.get("openrouter_api_key", "")}"',
-                  f'model = "{sc.get("model", "")}"',
                   f'auto = {"true" if sc.get("auto", True) else "false"}',
                   f'cap_per_open = {int(sc.get("cap_per_open", 20))}']
+        for k in ("api_base", "openrouter_api_key", "model"):  # legacy flat fields
+            if sc.get(k):
+                lines.append(f'{k} = "{sc[k]}"')
+        for p in sc.get("providers", []):
+            lines += ["", "[[scoring.providers]]",
+                      f'name = "{p.get("name", "")}"',
+                      f'api_base = "{p.get("api_base", "")}"',
+                      f'api_key = "{p.get("api_key", "")}"',
+                      f'model = "{p.get("model", "")}"']
     for acc in cfg.get("email", []):
         lines += ["", "[[email]]",
                   f'address = "{acc.get("address", "")}"',

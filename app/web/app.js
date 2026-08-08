@@ -538,12 +538,36 @@ async function openDashboard() {
   showView();
   renderStats(await api().dashboard_stats());
   const ai = await api().get_ai_settings();
-  $("#ai-base").value = ai.api_base;
-  $("#ai-model").value = ai.model;
   $("#ai-auto").checked = ai.auto;
-  $("#ai-status").textContent = ai.has_key ? "key set" : "no key";
+  renderProviders(ai.providers);
   renderEmailAccounts(await api().email_accounts());
   renderReplies(await api().replies_feed());
+}
+
+function renderProviders(providers) {
+  const box = $("#ai-providers");
+  box.innerHTML = "";
+  if (!providers.length) {
+    box.append(el("div", "stat-note",
+      "No providers configured — add [[scoring.providers]] blocks to jobradar.toml."));
+    return;
+  }
+  for (const p of providers) {
+    const row = el("div", "em-account");
+    row.append(el("span", null, p.name));
+    row.append(el("span", "host", p.model || "no model set"));
+    row.append(el("span", "host", p.cooling_s > 0
+      ? `cooling ${Math.ceil(p.cooling_s / 60)}m` : "ready"));
+    const t = el("button", "btn-quiet rm", "Test");
+    t.addEventListener("click", async () => {
+      t.textContent = "…";
+      const r = await api().test_ai(p.name);
+      t.textContent = r.ok ? "✓ OK" : "✕ failed";
+      $("#ai-status").textContent = r.ok ? `${p.name} responds` : r.error;
+    });
+    row.append(t);
+    box.append(row);
+  }
 }
 
 function renderEmailAccounts(accounts) {
@@ -989,19 +1013,9 @@ window.addEventListener("pywebviewready", () => {
   $("#p-save").addEventListener("click", saveProfile);
 
   $("#ai-save").addEventListener("click", async () => {
-    const r = await api().save_ai_settings({
-      api_base: $("#ai-base").value,
-      api_key: $("#ai-key").value,
-      model: $("#ai-model").value,
-      auto: $("#ai-auto").checked,
-    });
-    $("#ai-key").value = "";
-    $("#ai-status").textContent = "Saved ✓ " + (r.has_key ? "· key set" : "· no key");
-  });
-  $("#ai-test").addEventListener("click", async () => {
-    $("#ai-status").textContent = "Testing…";
-    const r = await api().test_ai();
-    $("#ai-status").textContent = r.ok ? `✓ ${r.model} responds` : "✕ " + r.error;
+    const r = await api().save_ai_settings({ auto: $("#ai-auto").checked });
+    $("#ai-status").textContent = "Saved ✓";
+    renderProviders(r.providers);
   });
 
   $("#em-host").addEventListener("change", () => {

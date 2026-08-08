@@ -518,28 +518,21 @@ class Api:
                    order by received_at desc nulls last""", (job_id,))
             return [_row_out(r) for r in cur.fetchall()]
 
-    def test_ai(self) -> dict:
-        return self._squeue.test_connection()
+    def test_ai(self, name: str = "") -> dict:
+        return self._squeue.test_connection(name)
 
     def get_ai_settings(self) -> dict:
-        sc = self._scoring_cfg
-        return {"api_base": sc.get("api_base", "https://openrouter.ai/api/v1"),
-                "has_key": bool(sc.get("openrouter_api_key")),
-                "model": sc.get("model", ""),
-                "auto": bool(sc.get("auto", True))}
+        return {"auto": bool(self._scoring_cfg.get("auto", True)),
+                "providers": self._squeue.provider_status()}
 
     def save_ai_settings(self, fields: dict) -> dict:
         sc = dict(self._scoring_cfg)
-        sc["api_base"] = (fields.get("api_base") or "https://openrouter.ai/api/v1").strip()
-        if fields.get("api_key"):  # blank = keep existing
-            sc["openrouter_api_key"] = fields["api_key"].strip()
-        sc["model"] = (fields.get("model") or "").strip()
         sc["auto"] = bool(fields.get("auto", True))
         sc.setdefault("cap_per_open", 20)
         self._config["scoring"] = sc
         self._scoring_cfg = sc
         self._save_config(self._config)
-        self._squeue = ScoreQueue(self._url, sc)   # apply immediately
+        self._squeue = ScoreQueue(self._url, sc)
         return {"ok": True, **self.get_ai_settings()}
 
     # -- dashboard stats ---------------------------------------------------

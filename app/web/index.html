@@ -219,24 +219,17 @@
           </section>
 
           <section class="dash-section" id="ai-settings">
-            <div class="dash-head"><h2>AI Provider</h2><span id="ai-status" class="muted"></span></div>
-            <label>API Base URL <span class="hint">any OpenAI-compatible endpoint — OpenRouter, OpenAI, Anthropic, Groq, or local Ollama (http://localhost:11434/v1)</span>
-              <input type="text" id="ai-base" placeholder="https://openrouter.ai/api/v1">
-            </label>
-            <div class="form-row">
-              <label>API Key <span class="hint">leave blank to keep current · local endpoints need none</span>
-                <input type="password" id="ai-key" placeholder="••••••••">
-              </label>
-              <label>Model
-                <input type="text" id="ai-model" placeholder="nvidia/nemotron-3-ultra-550b-a55b:free">
-              </label>
-            </div>
+            <div class="dash-head"><h2>AI Providers</h2><span id="ai-status" class="muted"></span></div>
+            <div id="ai-providers"></div>
+            <p class="stat-note">Tried top to bottom; a provider that rate-limits cools down for 15 minutes
+            while the next takes over. Any OpenAI-compatible endpoint works — add or edit them in
+            jobradar.toml ([[scoring.providers]]) next to the app, including local Ollama
+            (http://localhost:11434/v1, no key).</p>
             <div class="check-row">
               <label class="check"><input type="checkbox" id="ai-auto" checked> Score new matches automatically</label>
             </div>
             <div class="dash-actions">
               <button id="ai-save" class="btn-primary">Save</button>
-              <button id="ai-test" class="btn-quiet">Test Connection</button>
               <button id="p-score-all" class="btn-quiet">Score All Unscored</button>
             </div>
           </section>
