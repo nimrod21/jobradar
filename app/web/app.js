@@ -987,6 +987,7 @@ function wireSetup() {
         ? "Connected — existing database recognised."
         : `Database built (${(r.applied || []).length} migrations).`;
       $("#setup-finish").hidden = false;
+      $("#setup-finish-hint").hidden = false;
     } else {
       $("#s1-msg").textContent = "✕ " + r.error;
     }
@@ -1017,9 +1018,7 @@ function wireSetup() {
     }
   });
 
-  const enter = () => bootMain();
-  $("#setup-finish").addEventListener("click", enter);
-  $("#setup-skip").addEventListener("click", enter);
+  $("#setup-finish").addEventListener("click", () => bootMain());
 }
 
 async function boot() {
